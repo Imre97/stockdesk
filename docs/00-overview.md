@@ -11,7 +11,7 @@ Specified and implemented one at a time. Each module has its own document under 
 | # | Module | Doc | Status | Depends on |
 |---|--------|-----|--------|------------|
 | 1 | Auth (register, login, JWT access + refresh) | `modules/auth.md` | implemented | none |
-| 2 | Dashboard shell (layout, nav tabs, i18n, theme, settings, accounts, simulated deposits, equity chart, positions table) | `modules/dashboard.md` | specified | 1 |
+| 2 | Dashboard shell (layout, nav tabs, i18n, theme, settings, accounts, simulated deposits, equity chart, positions table) | `modules/dashboard.md` | implemented | 1 |
 | 3 | Market data and symbol page (provider layer, ticker search, live quotes, candlestick chart, key stats, per-symbol position and history panels) | `modules/market-data.md` | specified | 2 |
 | 4 | Orders (market, limit, stop, stop-limit, long and short, fractional shares, stop-loss and take-profit brackets, order panel, execution engine, positions and trades, Orders tab) | `modules/orders.md` | specified | 3 |
 | 5 | Transfers and reports (transfer between own accounts as a funding source, per-account statement with summary, performance vs net deposits, realized P&L by symbol, trade statistics, executions, cash activity, CSV export) | `modules/portfolio.md` | specified | 4 |

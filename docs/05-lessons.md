@@ -29,6 +29,7 @@ Format: `L-<n>` id, source module and date, what happened, the rule, where it ap
 - Source: auth, 2026-09-08. The `Stop` hook ran `vitest` in `apps/api` while a subagent ran the same suite on `stockdesk_test`. Result: `TRUNCATE` deadlock and `409 EMAIL_TAKEN` from identical fixture emails, reported as failures that were not real.
 - Rule: fixtures must be unique per test (random suffix, never a fixed email). While a subagent owns a test run, keep the turn open or accept that hook output is noise; a failure counts only when it reproduces in a solo run.
 - Applies to: the coordinating session, `apps/api/test/helpers.ts` fixtures.
+- Update 2026-09-08 (dashboard): the collision recurred six more times during Module 2 (TRUNCATE deadlocks, `Expected at least one account`, spurious 500s). Registered as TD-30: the hook should skip when another vitest run holds a repo-local lock. Fix it before Module 3 starts.
 
 ### L-5 Tests first, with first-failure evidence, stays mandatory
 
@@ -74,8 +75,21 @@ Format: `L-<n>` id, source module and date, what happened, the rule, where it ap
 - Rule: per module, at most one implementation review, one fix round, and one confirming review. Once a module is `implemented`, a delta review (after a tech-debt round or a small follow-up) triggers a fix round only for blockers; should-fix and nice-to-have items go straight into `docs/TECH-DEBT.md` with a timing. Tech-debt rounds get no dedicated review; the next module's review covers them. If a module still has a blocker after the third round, stop and discuss with the user instead of scheduling round four.
 - Applies to: the coordinating session, `.claude/skills/module-review/SKILL.md`.
 
+### L-12 A session boundary resets every client cache
+
+- Source: dashboard, 2026-09-08. Logout only cleared the auth store. Zustand domain stores and the TanStack Query cache survived, and the bootstrap skipped its fetches because the stores were already `loaded`, so a second user logging in within the same tab saw the first user's accounts, balances and settings. Found in the confirming review, not by any test.
+- Rule: login, logout and session expiry are one boundary. Every client store, query cache and socket that holds user data is reset at that boundary through one function (`resetClientState`), the authenticated bootstrap is keyed by user id, and a test proves that after user A logs out and user B logs in, no value of A is observable. Every module that adds a store registers it in that reset.
+- Applies to: `apps/web/src/features/auth/session-reset.ts`, every new zustand store, the module review checklist.
+
+### L-13 Reviews find data-flow bugs that unit tests do not
+
+- Source: dashboard, 2026-09-08. Two of three blockers were data-flow mismatches between components that each passed their own tests: the deposit list bound to the sidebar-active account while the form deposited into its own selection, and the logout path above. Each unit was correct; the seam was wrong.
+- Rule: for every page that combines two sources of state (a form selection and a global active item, a cache and a store, a socket and a store), write the seam down as an invariant in the spec pre-review and add one test that crosses the seam (or an e2e case), before the module review.
+- Applies to: spec pre-review (L-1), web feature prompts.
+
 ## Record of module cycles
 
 | Module | Date | Review rounds | Blockers found | Root causes |
 |--------|------|---------------|----------------|-------------|
 | auth | 2026-09-08 | 4 to `implemented` (BLOCKED, PASS WITH SHOULD-FIX, BLOCKED, PASS), then 2 delta rounds on the tech-debt burn that should not have triggered fix rounds | 3 | L-6, L-7, L-2 with L-9; loop: L-11 |
+| dashboard | 2026-09-08 | 3 (BLOCKED, BLOCKED, final delta); pre-review (L-1) batched 33 spec gaps into 4 user questions | 3 | untested hook (test plan not enforced), deposit page seam (L-13), logout state leak (L-12); SQL `AT TIME ZONE` on a `timestamp` column found as should-fix |

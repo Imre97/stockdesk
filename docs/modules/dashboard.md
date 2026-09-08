@@ -1,6 +1,6 @@
 # Module 2: Dashboard Shell
 
-Status: specified
+Status: implemented
 
 ## Scope
 
