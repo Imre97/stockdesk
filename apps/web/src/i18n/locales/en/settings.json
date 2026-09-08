@@ -10,5 +10,6 @@
   "defaultAccount.label": "Default account",
   "save": "Save settings",
   "saved": "Your settings were saved.",
-  "defaultAccount.none": "No default account"
+  "defaultAccount.none": "No default account",
+  "errors.saveFailed": "Your settings could not be saved. The change stays applied here."
 }

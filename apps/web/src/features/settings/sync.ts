@@ -8,6 +8,7 @@ import * as api from "./api";
 import { useSettingsStore } from "./store";
 
 export const SETTINGS_QUERY_KEY = ["settings"] as const;
+export const SETTINGS_SAVE_ERROR_KEY = "errors.saveFailed";
 
 export function useSettingsSync(): void {
   const applyServerSettings = useSettingsStore((state) => state.applyServerSettings);
@@ -31,5 +32,6 @@ export function useUpdateSettings(): UseMutationResult<SettingsResponse, Error, 
       applyServerSettings(response.settings);
       toast.success(t("saved"));
     },
+    onError: () => toast.error(t(SETTINGS_SAVE_ERROR_KEY)),
   });
 }

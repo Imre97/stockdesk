@@ -10,5 +10,6 @@
   "defaultAccount.label": "Alapértelmezett számla",
   "save": "Beállítások mentése",
   "saved": "A beállításokat mentettük.",
-  "defaultAccount.none": "Nincs alapértelmezett számla"
+  "defaultAccount.none": "Nincs alapértelmezett számla",
+  "errors.saveFailed": "A beállításokat nem sikerült menteni. A módosítás itt érvényben marad."
 }

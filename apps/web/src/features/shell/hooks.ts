@@ -5,7 +5,7 @@ import { createWsClient } from "../../lib/ws";
 import { useAuthStore } from "../auth/store";
 import { useCurrentUser, useLogout } from "../auth/hooks";
 import { useAccountsStore } from "../accounts/store";
-import { useLanguage, useTheme } from "../settings/hooks";
+import { useLanguage, usePersistSetting, useTheme } from "../settings/hooks";
 
 const WS_PATH = "/ws";
 
@@ -16,14 +16,16 @@ export interface ProfileMenuState {
   theme: Theme;
   setLanguage: (language: Language) => void;
   setTheme: (theme: Theme) => void;
+  errorKey: string | null;
   signOut: () => void;
 }
 
 export function useProfileMenu(): ProfileMenuState {
   const user = useCurrentUser();
   const logout = useLogout();
-  const { language, setLanguage } = useLanguage();
-  const { theme, setTheme } = useTheme();
+  const { language } = useLanguage();
+  const { theme } = useTheme();
+  const { persistLanguage, persistTheme, errorKey } = usePersistSetting();
 
   const signOut = useCallback(() => {
     void logout();
@@ -34,8 +36,9 @@ export function useProfileMenu(): ProfileMenuState {
     initials: user?.initials ?? "",
     language,
     theme,
-    setLanguage,
-    setTheme,
+    setLanguage: persistLanguage,
+    setTheme: persistTheme,
+    errorKey,
     signOut,
   };
 }
