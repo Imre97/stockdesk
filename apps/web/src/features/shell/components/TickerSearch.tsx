@@ -48,15 +48,13 @@ export function TickerSearch() {
               className={cn(ROW_CLASS, index === search.activeIndex && "bg-accent text-accent-foreground")}
               id={search.optionId(index)}
               key={option.symbol}
-              onClick={() => search.select(option.symbol)}
+              onClick={() => search.select(option)}
               onMouseDown={search.onOptionMouseDown}
               role="option"
             >
               <span className="font-medium">{option.symbol}</span>
-              {option.name !== null && <span className="truncate text-muted-foreground">{option.name}</span>}
-              {option.exchange !== null && (
-                <span className="ml-auto text-xs text-muted-foreground">{option.exchange}</span>
-              )}
+              <span className="truncate text-muted-foreground">{option.name}</span>
+              <span className="ml-auto text-xs text-muted-foreground">{option.exchange}</span>
             </li>
           ))}
           {search.showNoResults && (

@@ -6,6 +6,8 @@ export interface ChartColors {
   text: string;
   grid: string;
   background: string;
+  gain: string;
+  loss: string;
 }
 
 const FALLBACK_COLORS: ChartColors = {
@@ -14,6 +16,8 @@ const FALLBACK_COLORS: ChartColors = {
   text: "rgb(113, 113, 122)",
   grid: "rgba(113, 113, 122, 0.2)",
   background: "transparent",
+  gain: "rgb(22, 128, 82)",
+  loss: "rgb(185, 43, 43)",
 };
 
 function readVariable(styles: CSSStyleDeclaration, name: string, fallback: string): string {
@@ -26,14 +30,16 @@ export function readChartColors(): ChartColors {
   if (typeof document === "undefined") return FALLBACK_COLORS;
 
   const styles = getComputedStyle(document.documentElement);
-  const line = readVariable(styles, "--gain", FALLBACK_COLORS.line);
+  const gain = readVariable(styles, "--gain", FALLBACK_COLORS.gain);
 
   return {
-    line,
-    fill: line,
+    line: gain,
+    fill: gain,
     text: readVariable(styles, "--neutral", FALLBACK_COLORS.text),
     grid: readVariable(styles, "--border", FALLBACK_COLORS.grid),
     background: FALLBACK_COLORS.background,
+    gain,
+    loss: readVariable(styles, "--loss", FALLBACK_COLORS.loss),
   };
 }
 

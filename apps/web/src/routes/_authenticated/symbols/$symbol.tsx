@@ -1,15 +1,29 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useTranslation } from "react-i18next";
+import { createFileRoute, notFound, redirect } from "@tanstack/react-router";
 
+import { SymbolNotFound } from "../../../features/market/components/SymbolNotFound";
+import { SymbolPage } from "../../../features/market/components/SymbolPage";
+import { loadSymbolDetail, normalizeSymbolParam } from "../../../features/market/route-loader";
 import { ensureNamespaces } from "../../../i18n";
 
-function SymbolPage() {
-  const { t } = useTranslation("market");
+function SymbolRoute() {
+  const { symbol } = Route.useParams();
 
-  return <p className="text-sm text-muted-foreground">{t("page.loading")}</p>;
+  return <SymbolPage symbol={symbol} />;
 }
 
 export const Route = createFileRoute("/_authenticated/symbols/$symbol")({
-  loader: () => ensureNamespaces("market"),
-  component: SymbolPage,
+  beforeLoad: ({ params }) => {
+    const symbol = normalizeSymbolParam(params.symbol);
+
+    if (symbol !== params.symbol) {
+      throw redirect({ to: "/symbols/$symbol", params: { symbol } });
+    }
+  },
+  loader: async ({ params }) => {
+    await ensureNamespaces("market");
+
+    if ((await loadSymbolDetail(params.symbol)) === "not-found") throw notFound();
+  },
+  component: SymbolRoute,
+  notFoundComponent: SymbolNotFound,
 });

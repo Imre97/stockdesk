@@ -186,7 +186,7 @@ describe("resetClientState and the market feature", () => {
   });
 
   it("forgets the recently opened symbols", () => {
-    pushRecentSymbol("TSLA");
+    pushRecentSymbol({ symbol: "TSLA", name: "Tesla, Inc.", exchange: "NASDAQ" });
 
     resetClientState({ queryClient });
 
@@ -198,7 +198,7 @@ describe("resetClientState and the market feature", () => {
 describe("a second user in the same tab", () => {
   it("observes no market quote, recent symbol or cached query of the first user", () => {
     useMarketStore.getState().applyQuote(QUOTE_MESSAGE);
-    pushRecentSymbol("TSLA");
+    pushRecentSymbol({ symbol: "TSLA", name: "Tesla, Inc.", exchange: "NASDAQ" });
     queryClient.setQueryData(symbolDetailQueryKey(USER.id, "TSLA"), { symbol: "TSLA" });
     queryClient.setQueryData(marketStatusQueryKey(USER.id), { status: "open" });
 

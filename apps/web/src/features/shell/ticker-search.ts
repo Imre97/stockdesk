@@ -2,15 +2,11 @@ import { useCallback, useId, useMemo, useState, type KeyboardEvent, type MouseEv
 import { useNavigate } from "@tanstack/react-router";
 
 import { useSymbolSearch } from "../market/hooks";
-import { pushRecentSymbol, readRecentSymbols } from "../market/recent-symbols";
+import { pushRecentSymbol, readRecentSymbols, type RecentSymbol } from "../market/recent-symbols";
 
 const NO_ACTIVE_INDEX = -1;
 
-export interface TickerSearchOption {
-  symbol: string;
-  name: string | null;
-  exchange: string | null;
-}
+export type TickerSearchOption = RecentSymbol;
 
 export interface TickerSearchState {
   query: string;
@@ -27,7 +23,7 @@ export interface TickerSearchState {
   onBlur: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
   onOptionMouseDown: (event: MouseEvent<HTMLElement>) => void;
-  select: (symbol: string) => void;
+  select: (option: TickerSearchOption) => void;
 }
 
 function nextIndex(current: number, length: number): number {
@@ -44,7 +40,7 @@ export function useTickerSearch(): TickerSearchState {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(NO_ACTIVE_INDEX);
-  const [recent, setRecent] = useState<string[]>([]);
+  const [recent, setRecent] = useState<RecentSymbol[]>([]);
 
   const search = useSymbolSearch(query);
   const isRecent = query.trim() === "";
@@ -52,7 +48,7 @@ export function useTickerSearch(): TickerSearchState {
   const options = useMemo<TickerSearchOption[]>(
     () =>
       isRecent
-        ? recent.map((symbol) => ({ symbol, name: null, exchange: null }))
+        ? recent
         : search.results.map((result) => ({
             symbol: result.symbol,
             name: result.name,
@@ -64,10 +60,10 @@ export function useTickerSearch(): TickerSearchState {
   const optionId = useCallback((index: number) => `${listboxId}-option-${String(index)}`, [listboxId]);
 
   const select = useCallback(
-    (symbol: string) => {
-      const upper = symbol.toUpperCase();
+    (option: TickerSearchOption) => {
+      const upper = option.symbol.toUpperCase();
 
-      pushRecentSymbol(upper);
+      pushRecentSymbol({ ...option, symbol: upper });
       setQuery("");
       setOpen(false);
       setActiveIndex(NO_ACTIVE_INDEX);
@@ -106,7 +102,7 @@ export function useTickerSearch(): TickerSearchState {
       if (chosen === undefined) return;
 
       event.preventDefault();
-      select(chosen.symbol);
+      select(chosen);
     },
     [activeIndex, options, select],
   );

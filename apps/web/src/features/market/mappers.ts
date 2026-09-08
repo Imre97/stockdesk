@@ -3,6 +3,7 @@ import {
   Decimal,
   formatMoney,
   formatPercent,
+  formatQuantity,
   formatSignedMoney,
   type Bar,
   type BarDto,
@@ -14,6 +15,7 @@ import {
 const MILLISECONDS_PER_SECOND = 1000;
 const PERCENT_DECIMAL_PLACES = 2;
 const PERCENT_FACTOR = 100;
+const COMPACT_FRACTION_DIGITS = 2;
 
 export interface QuoteTick {
   symbol: string;
@@ -131,8 +133,36 @@ export function formatChangePercent(value: DecimalValue, locale: string): string
   return formatPercent(value, locale);
 }
 
-export function formatSessionTime(at: string, locale: string): string {
+export function formatSessionTime(at: string | Date, locale: string): string {
   return new Intl.DateTimeFormat(locale, { timeStyle: "short" }).format(new Date(at));
+}
+
+export function formatTimestamp(at: string | Date, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(new Date(at));
+}
+
+export function formatRatio(value: DecimalValue, locale: string): string {
+  return formatQuantity(value, locale);
+}
+
+/**
+ * Compact notation is fed the decimal string rather than a converted value, so a market cap
+ * of several hundred billion never passes through a native number.
+ */
+export function formatCompactNumber(value: DecimalValue, locale: string): string {
+  return new Intl.NumberFormat(locale, {
+    notation: "compact",
+    maximumFractionDigits: COMPACT_FRACTION_DIGITS,
+  }).format(value.toString() as Intl.StringNumericLiteral);
+}
+
+export function mergeQuoteIntoBar(bar: ChartBar, price: DecimalValue): ChartBar {
+  return {
+    ...bar,
+    high: Decimal.max(bar.high, price),
+    low: Decimal.min(bar.low, price),
+    close: price,
+  };
 }
 
 export interface MarketStatusBadgeView {

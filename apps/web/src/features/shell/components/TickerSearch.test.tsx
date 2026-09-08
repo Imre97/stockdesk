@@ -22,6 +22,7 @@ import { TickerSearch } from "./TickerSearch";
 
 const TSLA = { symbol: "TSLA", name: "Tesla, Inc.", exchange: "NASDAQ" };
 const TSM = { symbol: "TSM", name: "Taiwan Semiconductor", exchange: "NYSE" };
+const AAPL = { symbol: "AAPL", name: "Apple Inc.", exchange: "NASDAQ" };
 
 let queryClient: QueryClient;
 
@@ -106,7 +107,7 @@ describe("TickerSearch", () => {
     fireEvent.click(await screen.findByRole("option", { name: /TSLA/ }));
 
     expect(navigate).toHaveBeenCalledWith({ to: "/symbols/$symbol", params: { symbol: "TSLA" } });
-    expect(window.localStorage.getItem(RECENT_SYMBOLS_STORAGE_KEY)).toBe(JSON.stringify(["TSLA"]));
+    expect(window.localStorage.getItem(RECENT_SYMBOLS_STORAGE_KEY)).toBe(JSON.stringify([TSLA]));
   });
 
   it("closes the dropdown on Escape", async () => {
@@ -123,15 +124,21 @@ describe("TickerSearch", () => {
     expect(combobox()).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("lists the recent symbols when the focused input is empty", async () => {
-    window.localStorage.setItem(RECENT_SYMBOLS_STORAGE_KEY, JSON.stringify(["TSLA", "AAPL"]));
+  it("lists the recent symbols with their name and exchange when the focused input is empty", async () => {
+    window.localStorage.setItem(RECENT_SYMBOLS_STORAGE_KEY, JSON.stringify([TSLA, AAPL]));
 
     renderSearch();
 
     fireEvent.focus(combobox());
 
     expect(await screen.findByText(i18n.t("shell:search.recent"))).toBeInTheDocument();
-    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual(["TSLA", "AAPL"]);
+
+    const options = screen.getAllByRole("option");
+
+    expect(options.map((option) => option.textContent)).toEqual([
+      "TSLATesla, Inc.NASDAQ",
+      "AAPLApple Inc.NASDAQ",
+    ]);
     expect(marketApi.searchSymbols).not.toHaveBeenCalled();
   });
 

@@ -3,15 +3,25 @@ export const RECENT_SYMBOLS_LIMIT = 5;
 
 const SYMBOL_PATTERN = /^[A-Z0-9.-]{1,12}$/;
 
-function normalize(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-
-  const upper = value.trim().toUpperCase();
-
-  return SYMBOL_PATTERN.test(upper) ? upper : null;
+export interface RecentSymbol {
+  symbol: string;
+  name: string;
+  exchange: string;
 }
 
-export function readRecentSymbols(): string[] {
+function normalize(entry: unknown): RecentSymbol | null {
+  if (entry === null || typeof entry !== "object") return null;
+
+  const { symbol, name, exchange } = entry as Record<string, unknown>;
+
+  if (typeof symbol !== "string" || typeof name !== "string" || typeof exchange !== "string") return null;
+
+  const upper = symbol.trim().toUpperCase();
+
+  return SYMBOL_PATTERN.test(upper) ? { symbol: upper, name, exchange } : null;
+}
+
+export function readRecentSymbols(): RecentSymbol[] {
   let raw: string | null = null;
 
   try {
@@ -34,11 +44,11 @@ export function readRecentSymbols(): string[] {
 
   return parsed
     .map((entry) => normalize(entry))
-    .filter((entry): entry is string => entry !== null)
+    .filter((entry): entry is RecentSymbol => entry !== null)
     .slice(0, RECENT_SYMBOLS_LIMIT);
 }
 
-function write(symbols: string[]): void {
+function write(symbols: RecentSymbol[]): void {
   try {
     window.localStorage.setItem(RECENT_SYMBOLS_STORAGE_KEY, JSON.stringify(symbols));
   } catch {
@@ -46,12 +56,12 @@ function write(symbols: string[]): void {
   }
 }
 
-export function pushRecentSymbol(symbol: string): void {
-  const normalized = normalize(symbol);
+export function pushRecentSymbol(entry: RecentSymbol): void {
+  const normalized = normalize(entry);
 
   if (normalized === null) return;
 
-  const rest = readRecentSymbols().filter((entry) => entry !== normalized);
+  const rest = readRecentSymbols().filter((known) => known.symbol !== normalized.symbol);
 
   write([normalized, ...rest].slice(0, RECENT_SYMBOLS_LIMIT));
 }
