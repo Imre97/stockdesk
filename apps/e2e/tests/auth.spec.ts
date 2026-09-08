@@ -1,12 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
-import { WRONG_PASSWORD, makeTestUser, registerViaApi, type TestUser } from "./helpers";
+import { WRONG_PASSWORD, makeTestUser, openProfileMenu, registerViaApi, type TestUser } from "./helpers";
 
 const EMAIL_LABEL = "Email";
 const PASSWORD_LABEL = "Password";
 const DISPLAY_NAME_LABEL = "Display name";
 const REGISTER_BUTTON = "Create an account";
 const LOGIN_BUTTON = "Sign in";
-const LOGOUT_BUTTON = "Sign out";
+const LOGOUT_ITEM = "Sign out";
 
 const REFRESH_COOKIE_NAME = "refreshToken";
 const REFRESH_COOKIE_PATH = "/api/v1/auth";
@@ -40,7 +40,7 @@ test("registers a new user and lands on the dashboard", async ({ page }) => {
   await submitRegisterForm(page, user);
 
   await expect(page).toHaveURL("/");
-  await expect(page.getByText(user.displayName)).toBeVisible();
+  await expect(page.getByRole("button", { name: user.displayName })).toBeVisible();
 });
 
 test("rejects a duplicate email", async ({ page, request }) => {
@@ -80,7 +80,7 @@ test("keeps the session across a full page reload through silent refresh", async
   await page.reload();
 
   await expect(page).toHaveURL("/");
-  await expect(page.getByText(user.displayName)).toBeVisible();
+  await expect(page.getByRole("button", { name: user.displayName })).toBeVisible();
 
   const cookies = await page.context().cookies();
   const refreshCookie = cookies.find((cookie) => cookie.name === REFRESH_COOKIE_NAME);
@@ -102,7 +102,8 @@ test("logs out and cannot silently refresh afterwards", async ({ page, request }
   await registerViaApi(request, user);
   await loginThroughUi(page, user);
 
-  await page.getByRole("button", { name: LOGOUT_BUTTON, exact: true }).click();
+  await openProfileMenu(page, user.displayName);
+  await page.getByRole("menuitem", { name: LOGOUT_ITEM, exact: true }).click();
   await expect(page).toHaveURL(LOGIN_URL);
 
   await page.goto("/");
