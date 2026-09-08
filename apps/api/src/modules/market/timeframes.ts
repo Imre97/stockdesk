@@ -4,6 +4,7 @@ import { fromNyWallClock, nyDay, shiftDay } from "../../lib/ny-clock.js";
 
 const MS_PER_MINUTE = 60_000;
 const MS_PER_HOUR = 60 * MS_PER_MINUTE;
+const MS_PER_DAY = 24 * MS_PER_HOUR;
 const DAYS_PER_WEEK = 7;
 const DAY_START_TIME = "00:00:00";
 const NOON_UTC = "12:00:00.000Z";
@@ -11,6 +12,9 @@ const DAY_LENGTH = 10;
 const MONTH_LENGTH = 7;
 
 export const BUCKET_EPOCH_MS = Date.UTC(2024, 0, 1);
+
+export const DAILY_HISTORY_DAYS = 730;
+export const MINUTE_HISTORY_DAYS = 30;
 
 const CALENDAR_TIMEFRAMES = ["1D", "1W", "1M"] as const;
 
@@ -109,4 +113,18 @@ export function previousBucketStartMs(startMs: number, timeframe: Timeframe): nu
   }
 
   return startMs - FIXED_SIZES[timeframe];
+}
+
+/**
+ * How far back a provider can answer: two years of daily, weekly and monthly buckets, thirty days
+ * of intraday ones. Both the simulated provider's own history and the request window the candle
+ * cache asks for are floored here, so a wide window (a bare `1M` page of 300) never asks for a
+ * range no provider can serve and never marks such a range covered.
+ */
+export function historyFloorMs(nowMs: number, timeframe: Timeframe): number {
+  const calendar = isCalendarTimeframe(timeframe);
+  const anchor = bucketStartMs(nowMs, calendar ? "1D" : "1m");
+  const days = calendar ? DAILY_HISTORY_DAYS : MINUTE_HISTORY_DAYS;
+
+  return Math.max(anchor - days * MS_PER_DAY, BUCKET_EPOCH_MS);
 }

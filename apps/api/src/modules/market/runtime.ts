@@ -100,8 +100,8 @@ export function createMarketRuntime(options: MarketRuntimeOptions): MarketRuntim
     },
 
     async stop(): Promise<void> {
-      await aggregator.stop();
       priceService.stop();
+      await aggregator.stop();
       await composite.stop();
     },
   };

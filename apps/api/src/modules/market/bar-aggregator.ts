@@ -223,7 +223,7 @@ export function createBarAggregator(options: BarAggregatorOptions): BarAggregato
     }, delay);
   }
 
-  priceService.onTrade(handleTrade);
+  const detachTrades = priceService.onTrade(handleTrade);
 
   return {
     trackTimeframe(symbol: string, timeframe: Timeframe): void {
@@ -264,6 +264,7 @@ export function createBarAggregator(options: BarAggregatorOptions): BarAggregato
 
     async stop(): Promise<void> {
       running = false;
+      detachTrades();
 
       if (sweepHandle !== null) {
         timers.clearTimeout(sweepHandle);
@@ -271,6 +272,7 @@ export function createBarAggregator(options: BarAggregatorOptions): BarAggregato
       }
 
       await writer.flush();
+      forming.clear();
     },
   };
 }

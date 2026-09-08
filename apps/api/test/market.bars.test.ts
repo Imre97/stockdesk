@@ -8,6 +8,7 @@ import { createTestMarket, seedSymbols } from "./market-helpers.js";
 
 const DEFAULT_PAGE = 300;
 const CONCURRENT_LIMIT = 50;
+const TWO_YEARS_BEFORE_MARKET_NOW = Date.parse("2024-09-08T00:00:00.000Z");
 
 const market = createTestMarket();
 const app = market.app;
@@ -98,6 +99,26 @@ describe("GET /api/v1/market/symbols/:symbol/bars", () => {
     expect(response.status).toBe(200);
     expect(page(response).bars).toEqual([]);
     expect(page(response).hasMore).toBe(false);
+  });
+
+  it("caps a 1M request window at the provider history depth", async () => {
+    const registered = await registerUser(app);
+    const spy = vi.spyOn(market.provider, "getBars");
+
+    const response = await fetchBars(registered.accessToken, "timeframe=1M");
+    expect(response.status).toBe(200);
+
+    const query = firstOf(spy.mock.calls, "provider bars call")[0];
+    expect(query.start?.getTime() ?? 0).toBeGreaterThanOrEqual(TWO_YEARS_BEFORE_MARKET_NOW);
+
+    const symbol = await prisma.symbol.findUnique({ where: { symbol: "TSLA" } });
+    if (symbol === null) throw new Error("Expected the TSLA symbol row.");
+
+    const coverage = await prisma.candleCoverage.findFirst({
+      where: { symbolId: symbol.id, timeframe: "1M" },
+    });
+
+    expect(coverage?.from.getTime() ?? 0).toBeGreaterThanOrEqual(TWO_YEARS_BEFORE_MARKET_NOW);
   });
 
   it("rejects an unsupported timeframe", async () => {

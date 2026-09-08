@@ -1,9 +1,9 @@
 import { Decimal, type MarketStatus } from "@stockdesk/shared";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadConfig } from "../src/lib/config.js";
 import type { PriceTimers } from "../src/modules/market/price-service.js";
 import { createSimulatedProvider } from "../src/modules/market/providers/simulated/provider.js";
-import { createMarketRuntime } from "../src/modules/market/runtime.js";
+import { createMarketRuntime, type MarketRuntime } from "../src/modules/market/runtime.js";
 import { upsertSymbols } from "../src/modules/market/symbols-repository.js";
 import { truncateAll } from "./db.js";
 import { createFakeProvider } from "./market-fakes.js";
@@ -36,6 +36,8 @@ function manualTimers(): ManualTimers {
   };
 }
 
+const runtimes: MarketRuntime[] = [];
+
 function buildRuntime(now: Date, timers?: PriceTimers, real = false) {
   const provider = createSimulatedProvider({ seed: MARKET_SEED, now: () => now });
   const providers = real
@@ -50,10 +52,16 @@ function buildRuntime(now: Date, timers?: PriceTimers, real = false) {
     priceTimers: timers,
   });
 
+  runtimes.push(runtime);
+
   return { provider, runtime };
 }
 
 describe("price service", () => {
+  afterEach(async () => {
+    for (const runtime of runtimes.splice(0)) await runtime.stop();
+  });
+
   beforeEach(async () => {
     await truncateAll();
     const provider = createSimulatedProvider({ seed: MARKET_SEED, now: () => MARKET_NOW });

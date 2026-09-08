@@ -3,6 +3,7 @@ import type { Timeframe } from "@stockdesk/shared";
 import {
   BUCKET_EPOCH_MS,
   bucketStartMs,
+  historyFloorMs,
   nextBucketStartMs,
   previousBucketStartMs,
 } from "../../timeframes.js";
@@ -12,8 +13,6 @@ export const MS_PER_MINUTE = 60_000;
 export const MS_PER_DAY = 86_400_000;
 export const MINUTES_PER_DAY = 1440;
 export const DAYS_PER_YEAR = 365;
-export const DAILY_HISTORY_DAYS = 730;
-export const MINUTE_HISTORY_DAYS = 30;
 
 const HALF_DAY_MS = MS_PER_DAY / 2;
 const EPOCH_DAY_START_MS = bucketStartMs(BUCKET_EPOCH_MS, "1D");
@@ -72,14 +71,7 @@ export function minuteRefOf(time: Date): MinuteRef {
 }
 
 export function historyStartMs(timeframe: Timeframe, now: Date): number {
-  if (sourceOf(timeframe) === "minute") {
-    const start = bucketStartMs(now.getTime(), "1m") - MINUTE_HISTORY_DAYS * MS_PER_DAY;
-    return Math.max(start, EPOCH_MS);
-  }
-
-  const start = bucketStartMs(now.getTime(), "1D") - DAILY_HISTORY_DAYS * MS_PER_DAY;
-
-  return Math.max(start, EPOCH_MS);
+  return historyFloorMs(now.getTime(), timeframe);
 }
 
 export function indexRange(first: number, count: number): number[] {

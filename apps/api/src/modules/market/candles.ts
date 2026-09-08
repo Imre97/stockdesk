@@ -5,7 +5,12 @@ import type { CandleRow, CoverageRow } from "./candles-repository.js";
 import { findActiveSymbol } from "./symbols-repository.js";
 import { ProviderUnavailableError, type CompositeProvider } from "./providers/composite.js";
 import type { Bar } from "./providers/types.js";
-import { nextBucketStartMs, windowStartMs } from "./timeframes.js";
+import {
+  bucketStartMs,
+  historyFloorMs,
+  nextBucketStartMs,
+  windowStartMs,
+} from "./timeframes.js";
 
 const PRICE_PLACES = 4;
 const VOLUME_PLACES = 0;
@@ -131,21 +136,27 @@ export function createCandleCache({ composite, now, log }: CandleCacheOptions): 
       const record = await findActiveSymbol(symbol);
       if (record === null) throw symbolNotFound(symbol);
 
-      const until = end ?? now();
-      const lowerBound = new Date(windowStartMs(until.getTime(), timeframe, limit));
+      const nowMs = now().getTime();
+      const until = end ?? new Date(nowMs);
+      const settled = new Date(bucketStartMs(Math.min(until.getTime(), nowMs), timeframe));
+      const lowerBound = new Date(
+        Math.max(windowStartMs(until.getTime(), timeframe, limit), historyFloorMs(nowMs, timeframe)),
+      );
 
       const cached = await candlesRepository.listBarsBefore(record.id, timeframe, until, limit);
       const coverage = await candlesRepository.listCoverage(record.id, timeframe);
       const oldestCached = cached[0]?.time;
 
       const satisfied =
-        contains(coverage, lowerBound, until) ||
-        (cached.length === limit && oldestCached !== undefined && contains(coverage, oldestCached, until));
+        contains(coverage, lowerBound, settled) ||
+        (cached.length === limit &&
+          oldestCached !== undefined &&
+          contains(coverage, oldestCached, settled));
 
       let providerPageFull = false;
 
       if (!satisfied) {
-        const range = missingRange(coverage, lowerBound, until);
+        const range = missingRange(coverage, lowerBound, settled);
         if (range !== null && range.start.getTime() < range.end.getTime()) {
           const returned = await fetchAndStore(record.id, symbol, timeframe, limit, range);
           providerPageFull = returned >= limit;

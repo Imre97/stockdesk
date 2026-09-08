@@ -30,6 +30,7 @@ export interface TestMarket {
   runtime: MarketRuntime;
   app: Express;
   logs: string[];
+  setNow: (at: Date) => void;
 }
 
 export interface CreateTestMarketOptions {
@@ -40,7 +41,7 @@ export interface CreateTestMarketOptions {
 
 export function createTestMarket(options: CreateTestMarketOptions = {}): TestMarket {
   const config = loadConfig(process.env);
-  const instant = options.now ?? MARKET_NOW;
+  let instant = options.now ?? MARKET_NOW;
   const now = (): Date => instant;
   const provider = createSimulatedProvider({ seed: options.seed ?? MARKET_SEED, now });
   const providers = options.providers === undefined ? [provider] : options.providers(provider);
@@ -56,7 +57,16 @@ export function createTestMarket(options: CreateTestMarketOptions = {}): TestMar
 
   const app = createApp({ config, rateLimit: { enabled: false }, market: runtime });
 
-  return { config, provider, runtime, app, logs };
+  return {
+    config,
+    provider,
+    runtime,
+    app,
+    logs,
+    setNow: (at: Date) => {
+      instant = at;
+    },
+  };
 }
 
 export async function seedSymbols(market: { provider: SimulatedProvider }): Promise<void> {
