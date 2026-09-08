@@ -1,0 +1,40 @@
+name: Claude review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm test -- --run
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this pull request for StockDesk. Read CLAUDE.md and docs/02-conventions.md first.
+            Focus on: money math done with decimal.js only, acceptance-criteria coverage by tests for the touched module spec in docs/modules, render/logic separation in .tsx files, files under 400 lines, English-only content outside apps/web/src/i18n/locales, authorization on every account-scoped endpoint.
+            Post concise inline comments: file and line, problem, fix. No praise.
+          claude_args: "--max-turns 30"

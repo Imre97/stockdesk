@@ -1,0 +1,18 @@
+{
+  "name": "stockdesk",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Paper-trading demo: React + Vite web, Express API, real-time prices over WebSocket",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "echo \"Scaffold apps/web and apps/api first\"",
+    "test": "echo \"No workspaces yet\"",
+    "lint": "echo \"No workspaces yet\""
+  }
+}
