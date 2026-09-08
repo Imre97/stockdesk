@@ -65,6 +65,26 @@ describe("scripts/check-language.mjs", () => {
     expect(result.stderr).not.toContain("ignored/skipped.md");
   });
 
+  it("ignores a tracked file that was deleted from the working tree", () => {
+    const root = makeRoot();
+    const git = (...args: string[]): void => {
+      spawnSync("git", ["-c", "user.name=probe", "-c", "user.email=probe@example.com", ...args], {
+        cwd: root,
+        encoding: "utf8",
+      });
+    };
+    git("init", "--quiet");
+    write(root, "docs/gone.md", "# Gone\n\nEnglish only.\n");
+    git("add", "docs/gone.md");
+    git("commit", "--quiet", "-m", "probe");
+    rmSync(path.join(root, "docs", "gone.md"));
+
+    const result = runCheck(root, { CHECK_LANGUAGE_GIT: "1" });
+
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+  });
+
   it("accepts a tree whose files are English only", () => {
     const root = makeRoot();
     write(root, "src/clean.ts", 'export const label = "Sign in";\n');

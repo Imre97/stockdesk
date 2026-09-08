@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -43,7 +43,10 @@ function repositoryFiles(root) {
     throw new Error(`git ls-files failed in ${root}: ${result.stderr ?? ""}`);
   }
 
-  return result.stdout.split("\n").map((line) => line.trim()).filter(Boolean);
+  return result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((file) => file !== "" && existsSync(path.join(root, file)));
 }
 
 function walkFiles(root, relativeDirectory = "") {
