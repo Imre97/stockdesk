@@ -1,0 +1,13 @@
+{
+  "metric": {
+    "10DayAverageTradingVolume": 98.5,
+    "52WeekHigh": 299.29,
+    "52WeekLow": 138.80,
+    "beta": 2.05,
+    "dividendYieldIndicatedAnnual": null,
+    "peBasicExclExtraTTM": 66.10,
+    "peTTM": 65.20
+  },
+  "metricType": "all",
+  "symbol": "TSLA"
+}

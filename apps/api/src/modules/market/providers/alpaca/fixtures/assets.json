@@ -1,0 +1,62 @@
+[
+  {
+    "class": "us_equity",
+    "exchange": "NASDAQ",
+    "symbol": "AAPL",
+    "name": "Apple Inc. Common Stock",
+    "status": "active",
+    "tradable": true,
+    "marginable": true,
+    "shortable": true,
+    "easy_to_borrow": true,
+    "fractionable": true
+  },
+  {
+    "class": "us_equity",
+    "exchange": "NASDAQ",
+    "symbol": "MSFT",
+    "name": "Microsoft Corporation Common Stock",
+    "status": "active",
+    "tradable": true,
+    "marginable": true,
+    "shortable": true,
+    "easy_to_borrow": true,
+    "fractionable": true
+  },
+  {
+    "class": "us_equity",
+    "exchange": "NYSE",
+    "symbol": "BRK.A",
+    "name": "Berkshire Hathaway Inc. Class A",
+    "status": "active",
+    "tradable": true,
+    "marginable": false,
+    "shortable": false,
+    "easy_to_borrow": false,
+    "fractionable": false
+  },
+  {
+    "class": "us_equity",
+    "exchange": "NASDAQ",
+    "symbol": "TSLA",
+    "name": "Tesla, Inc. Common Stock",
+    "status": "active",
+    "tradable": true,
+    "marginable": true,
+    "shortable": true,
+    "easy_to_borrow": true,
+    "fractionable": true
+  },
+  {
+    "class": "us_equity",
+    "exchange": "OTC",
+    "symbol": "DLST",
+    "name": "Delisted Holdings Inc.",
+    "status": "active",
+    "tradable": false,
+    "marginable": false,
+    "shortable": false,
+    "easy_to_borrow": false,
+    "fractionable": false
+  }
+]

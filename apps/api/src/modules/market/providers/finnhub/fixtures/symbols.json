@@ -1,0 +1,26 @@
+[
+  {
+    "currency": "USD",
+    "description": "APPLE INC",
+    "displaySymbol": "AAPL",
+    "mic": "XNAS",
+    "symbol": "AAPL",
+    "type": "Common Stock"
+  },
+  {
+    "currency": "USD",
+    "description": "TESLA INC",
+    "displaySymbol": "TSLA",
+    "mic": "XNAS",
+    "symbol": "TSLA",
+    "type": "Common Stock"
+  },
+  {
+    "currency": "USD",
+    "description": "SPDR S&P 500 ETF TRUST",
+    "displaySymbol": "SPY",
+    "mic": "ARCX",
+    "symbol": "SPY",
+    "type": "ETP"
+  }
+]

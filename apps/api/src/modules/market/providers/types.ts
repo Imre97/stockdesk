@@ -1,6 +1,8 @@
 import type { Decimal, Timeframe } from "@stockdesk/shared";
 import type { MarketDataProviderName } from "../../../lib/config.js";
 
+export type ProviderName = MarketDataProviderName | "composite";
+
 export const CAPABILITIES = ["stream", "bars", "search", "profile", "quote"] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -70,7 +72,7 @@ export interface SymbolProfile {
 export type TradeHandler = (trade: Trade) => void;
 
 export interface MarketDataProvider {
-  readonly name: MarketDataProviderName;
+  readonly name: ProviderName;
   readonly capabilities: ReadonlySet<Capability>;
   start(): Promise<void>;
   stop(): Promise<void>;
