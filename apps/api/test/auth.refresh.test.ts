@@ -49,9 +49,55 @@ describe("POST /api/v1/auth/refresh", () => {
 
     const afterRevocation = await request(app).post("/api/v1/auth/refresh").set("Cookie", rotated);
     expect(afterRevocation.status).toBe(401);
-    expect(["UNAUTHORIZED", "REFRESH_REUSED"]).toContain(
-      (afterRevocation.body as { error: { code: string } }).error.code,
-    );
+    expect(afterRevocation.body).toMatchObject({ error: { code: "REFRESH_REUSED" } });
+  });
+
+  it("never rotates the same token twice when two refreshes race", async () => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await truncateAll();
+      const registered = await registerUser(app);
+
+      const responses = await Promise.all([
+        request(app).post("/api/v1/auth/refresh").set("Cookie", registered.cookie),
+        request(app).post("/api/v1/auth/refresh").set("Cookie", registered.cookie),
+      ]);
+
+      const statuses = responses.map((response) => response.status).sort((left, right) => left - right);
+      expect(statuses).toEqual([200, 401]);
+
+      const rejected = responses.find((response) => response.status === 401);
+      expect(rejected?.body).toMatchObject({ error: { code: "REFRESH_REUSED" } });
+
+      const live = await prisma.refreshToken.count({
+        where: { userId: registered.user.id, revokedAt: null },
+      });
+      expect(live).toBe(0);
+    }
+  });
+
+  it("prunes expired refresh tokens when it rotates", async () => {
+    const registered = await registerUser(app);
+
+    const expired = await prisma.refreshToken.create({
+      data: {
+        userId: registered.user.id,
+        tokenHash: "expired-token-hash",
+        expiresAt: new Date(Date.now() - 60_000),
+      },
+    });
+    const live = await prisma.refreshToken.create({
+      data: {
+        userId: registered.user.id,
+        tokenHash: "live-token-hash",
+        expiresAt: new Date(Date.now() + 600_000),
+      },
+    });
+
+    const response = await request(app).post("/api/v1/auth/refresh").set("Cookie", registered.cookie);
+    expect(response.status).toBe(200);
+
+    expect(await prisma.refreshToken.findUnique({ where: { id: expired.id } })).toBeNull();
+    expect(await prisma.refreshToken.findUnique({ where: { id: live.id } })).not.toBeNull();
   });
 
   it("rejects a request without a cookie", async () => {

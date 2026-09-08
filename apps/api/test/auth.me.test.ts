@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
+import { loadConfig } from "../src/lib/config.js";
 import { truncateAll } from "./db.js";
 import { registerUser } from "./helpers.js";
 
@@ -37,6 +38,26 @@ describe("GET /api/v1/auth/me", () => {
 
     expect(response.status).toBe(401);
     expect(response.body).toMatchObject({ error: { code: "UNAUTHORIZED" } });
+  });
+
+  it("signs and verifies tokens with the injected configuration", async () => {
+    const otherApp = createApp({
+      rateLimit: { enabled: false },
+      config: { ...loadConfig(process.env), jwtAccessSecret: "other-test-secret" },
+    });
+
+    const registered = await registerUser(otherApp);
+
+    const accepted = await request(otherApp)
+      .get("/api/v1/auth/me")
+      .set("Authorization", `Bearer ${registered.accessToken}`);
+    expect(accepted.status).toBe(200);
+
+    const rejected = await request(app)
+      .get("/api/v1/auth/me")
+      .set("Authorization", `Bearer ${registered.accessToken}`);
+    expect(rejected.status).toBe(401);
+    expect(rejected.body).toMatchObject({ error: { code: "UNAUTHORIZED" } });
   });
 
   it("returns the current user without the password hash", async () => {

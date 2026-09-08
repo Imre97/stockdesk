@@ -120,10 +120,6 @@ describe("toApiString", () => {
     expect(toApiString("42", 2)).toBe("42.00");
   });
 
-  it("accepts an integer number for convenience", () => {
-    expect(toApiString(100000, 2)).toBe("100000.00");
-  });
-
   it("supports zero decimal places", () => {
     expect(toApiString("2.5", 0)).toBe("2");
     expect(toApiString("3.5", 0)).toBe("4");

@@ -22,6 +22,9 @@ beforeAll(() => {
   app.get("/api/v1/health", (_request, response) => {
     response.json({ status: "ok" });
   });
+  app.use("/api/v1", (_request, response) => {
+    response.status(404).json({ error: { code: "NOT_FOUND", message: "Route not found." } });
+  });
   mountStaticWeb(app, distDir);
 });
 
@@ -52,6 +55,7 @@ describe("mountStaticWeb", () => {
 
     const unknown = await request(app).get("/api/v1/unknown");
     expect(unknown.status).toBe(404);
+    expect(unknown.body).toEqual({ error: { code: "NOT_FOUND", message: "Route not found." } });
     expect(unknown.text).not.toContain(INDEX_MARKER);
   });
 

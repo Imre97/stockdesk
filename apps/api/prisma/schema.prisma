@@ -28,6 +28,8 @@ model RefreshToken {
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model Account {

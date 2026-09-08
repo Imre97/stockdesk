@@ -36,6 +36,7 @@ model RefreshToken {
 
 - Registration runs in one transaction: create `User`, create `Account` named `Main` with `cashBalance = 100000`, create a `CashTransaction` of type `DEPOSIT` for `100000` with note `initial funding`, create `UserSettings` with `defaultAccountId` pointing at the account. Models in `dashboard.md`.
 - `tokenHash` is the SHA-256 hex digest of the raw refresh token. Raw tokens are never stored.
+- Rows with `expiresAt` in the past are deleted at server boot and after every successful rotation.
 
 ## API
 
@@ -64,7 +65,7 @@ Balances are not part of the user shape; they come from `GET /api/v1/accounts` (
 
 ### Error codes
 
-`VALIDATION_ERROR`, `EMAIL_TAKEN`, `INVALID_CREDENTIALS`, `UNAUTHORIZED`, `REFRESH_REUSED`, `RATE_LIMITED`.
+`VALIDATION_ERROR` (422), `EMAIL_TAKEN` (409), `INVALID_CREDENTIALS` (401), `UNAUTHORIZED` (401), `REFRESH_REUSED` (401), `RATE_LIMITED` (429).
 
 ## Tokens
 
@@ -154,11 +155,12 @@ JWT_ACCESS_SECRET=
 JWT_ACCESS_TTL=15m
 REFRESH_TOKEN_TTL_DAYS=7
 CORS_ORIGIN=http://localhost:5173
+WEB_DIST_DIR=../web/dist
 AUTH_RATE_LIMIT_MAX=10
 AUTH_RATE_LIMIT_WINDOW_MINUTES=15
 ```
 
-This module also adds `GET /api/v1/health` (public): `200 { "status": "ok", "database": "ok" }`, `503` with `"database": "unreachable"` when the database query fails. Later modules extend the payload.
+This module also adds `GET /api/v1/health` (public): `200 { "status": "ok", "database": "ok" }`, `503 { "status": "degraded", "database": "unreachable" }` when the database query fails. Later modules extend the payload.
 
 ## Acceptance criteria
 

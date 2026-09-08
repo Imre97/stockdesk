@@ -2,8 +2,11 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket, type WebSocketServer } from "ws";
+import { loadConfig } from "../lib/config.js";
 import { signAccessToken } from "../modules/auth/tokens.js";
 import { attachWebSocketServer } from "./auth-handshake.js";
+
+const config = loadConfig(process.env);
 
 interface Harness {
   url: string;
@@ -21,7 +24,7 @@ let harness: Harness | undefined;
 
 async function startHarness(authTimeoutMs?: number): Promise<Harness> {
   const server = createServer();
-  const wss = attachWebSocketServer(server, authTimeoutMs === undefined ? undefined : { authTimeoutMs });
+  const wss = attachWebSocketServer(server, config, authTimeoutMs === undefined ? {} : { authTimeoutMs });
 
   await new Promise<void>((resolve) => {
     server.listen(0, "127.0.0.1", resolve);
@@ -70,7 +73,7 @@ afterEach(async () => {
 describe("attachWebSocketServer", () => {
   it("accepts a valid auth message", async () => {
     const { url } = await startHarness();
-    const token = signAccessToken("user-7");
+    const token = signAccessToken(config, "user-7");
 
     const outcome = await connect(url, JSON.stringify({ type: "auth", token }));
 

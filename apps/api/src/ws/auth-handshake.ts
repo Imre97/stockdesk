@@ -1,5 +1,6 @@
 import type { Server } from "node:http";
 import { WebSocketServer, type RawData, type WebSocket } from "ws";
+import type { AppConfig } from "../lib/config.js";
 import { verifyAccessToken } from "../modules/auth/tokens.js";
 
 const DEFAULT_AUTH_TIMEOUT_MS = 5000;
@@ -33,7 +34,11 @@ function readAuthToken(raw: RawData): string | undefined {
   return message.token;
 }
 
-export function attachWebSocketServer(server: Server, options: WebSocketServerOptions = {}): WebSocketServer {
+export function attachWebSocketServer(
+  server: Server,
+  config: AppConfig,
+  options: WebSocketServerOptions = {},
+): WebSocketServer {
   const wss = new WebSocketServer({ server, path: "/ws" });
   const authTimeoutMs = options.authTimeoutMs ?? DEFAULT_AUTH_TIMEOUT_MS;
 
@@ -56,7 +61,7 @@ export function attachWebSocketServer(server: Server, options: WebSocketServerOp
       let userId: string;
 
       try {
-        userId = verifyAccessToken(token);
+        userId = verifyAccessToken(config, token);
       } catch {
         socket.close(UNAUTHORIZED_CODE, UNAUTHORIZED_REASON);
         return;

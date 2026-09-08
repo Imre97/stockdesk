@@ -1,14 +1,17 @@
 import express from "express";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
+import { loadConfig } from "../lib/config.js";
 import { signAccessToken } from "../modules/auth/tokens.js";
 import { errorHandler } from "./error-handler.js";
 import { requireAuth } from "./require-auth.js";
 
+const config = loadConfig(process.env);
+
 function buildApp(): express.Express {
   const app = express();
 
-  app.get("/protected", requireAuth, (req, res) => {
+  app.get("/protected", requireAuth(config), (req, res) => {
     res.json({ id: req.user?.id });
   });
 
@@ -41,7 +44,7 @@ describe("requireAuth", () => {
   });
 
   it("sets the user on the request for a valid token", async () => {
-    const token = signAccessToken("user-42");
+    const token = signAccessToken(config, "user-42");
 
     const response = await request(app).get("/protected").set("Authorization", `Bearer ${token}`);
 

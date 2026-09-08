@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { loadConfig } from "../../lib/config.js";
 import {
   createRefreshToken,
   hashRefreshToken,
@@ -7,27 +8,29 @@ import {
   verifyAccessToken,
 } from "./tokens.js";
 
+const config = loadConfig(process.env);
+
 describe("access tokens", () => {
   it("signs and verifies a round trip", () => {
-    const token = signAccessToken("user-1");
+    const token = signAccessToken(config, "user-1");
 
-    expect(verifyAccessToken(token)).toBe("user-1");
+    expect(verifyAccessToken(config, token)).toBe("user-1");
   });
 
   it("rejects a token signed with another secret", () => {
-    const token = signAccessToken("user-1", { secret: "another-test-secret" });
+    const token = signAccessToken(config, "user-1", { secret: "another-test-secret" });
 
-    expect(() => verifyAccessToken(token)).toThrowError();
+    expect(() => verifyAccessToken(config, token)).toThrowError();
   });
 
   it("rejects an expired token", () => {
-    const token = signAccessToken("user-1", { ttl: "0s" });
+    const token = signAccessToken(config, "user-1", { ttl: "0s" });
 
-    expect(() => verifyAccessToken(token)).toThrowError();
+    expect(() => verifyAccessToken(config, token)).toThrowError();
   });
 
   it("rejects a token that is not a JWT", () => {
-    expect(() => verifyAccessToken("not-a-jwt")).toThrowError();
+    expect(() => verifyAccessToken(config, "not-a-jwt")).toThrowError();
   });
 });
 
@@ -52,6 +55,6 @@ describe("refresh tokens", () => {
   it("computes an expiry in the future", () => {
     const now = new Date("2026-09-08T10:00:00.000Z");
 
-    expect(refreshTokenExpiry(now).getTime()).toBeGreaterThan(now.getTime());
+    expect(refreshTokenExpiry(config, now).getTime()).toBeGreaterThan(now.getTime());
   });
 });

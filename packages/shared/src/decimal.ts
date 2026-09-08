@@ -19,7 +19,7 @@ export const decimalString = z
   .regex(DECIMAL_PATTERN, DECIMAL_STRING_ERROR)
   .transform((value) => new Decimal(value));
 
-export function toApiString(value: DecimalValue | string | number, decimalPlaces: number): string {
+export function toApiString(value: DecimalValue | string, decimalPlaces: number): string {
   // eslint-disable-next-line no-restricted-syntax
   return new Decimal(value).toDecimalPlaces(decimalPlaces, Decimal.ROUND_HALF_EVEN).toFixed(decimalPlaces);
 }

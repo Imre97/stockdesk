@@ -59,7 +59,7 @@ const stockdeskPlugin = {
   },
 };
 
-const sourceGlobs = ["apps/api/src/**", "apps/web/src/features/**", "packages/shared/src/**"];
+const sourceGlobs = ["apps/api/src/**", "apps/web/src/**", "packages/shared/src/**"];
 const testGlobs = ["**/*.test.ts", "**/*.test.tsx", "apps/api/test/**"];
 
 export default tseslint.config(

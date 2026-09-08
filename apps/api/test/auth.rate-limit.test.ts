@@ -53,6 +53,21 @@ describe("auth rate limiting", () => {
     expect(blocked.body).toMatchObject({ error: { code: "RATE_LIMITED" } });
   });
 
+  it("keeps a separate bucket per forwarded client address", async () => {
+    const limited = createApp({ rateLimit: { enabled: true, max: 1 } });
+    const payload = credentials();
+    const post = (forwardedFor: string) =>
+      request(limited).post("/api/v1/auth/login").set("X-Forwarded-For", forwardedFor).send(payload);
+
+    const firstFromA = await post("203.0.113.1");
+    const secondFromA = await post("203.0.113.1");
+    const firstFromB = await post("203.0.113.2");
+
+    expect(firstFromA.status).not.toBe(429);
+    expect(secondFromA.status).toBe(429);
+    expect(firstFromB.status).not.toBe(429);
+  });
+
   it("lets an explicit rate limit option override the configuration", async () => {
     const config = loadConfig({ ...process.env, AUTH_RATE_LIMIT_MAX: "1" });
     const payload = credentials();
