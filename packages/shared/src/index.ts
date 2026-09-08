@@ -4,5 +4,6 @@ export * from "./auth.js";
 export * from "./decimal.js";
 export * from "./format.js";
 export * from "./funding.js";
+export * from "./market.js";
 export * from "./settings.js";
 export * from "./ws.js";

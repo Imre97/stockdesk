@@ -78,6 +78,71 @@ model UserSettings {
   updatedAt        DateTime @updatedAt
 }
 
+model Symbol {
+  id           String           @id @default(cuid())
+  symbol       String           @unique
+  name         String
+  exchange     String
+  assetType    String           @default("us_equity")
+  currency     String           @default("USD")
+  isActive     Boolean          @default(true)
+  shortable    Boolean          @default(true)
+  fractionable Boolean          @default(true)
+  source       String
+  updatedAt    DateTime         @updatedAt
+  profile      SymbolProfile?
+  candles      Candle[]
+  coverage     CandleCoverage[]
+
+  @@index([name])
+}
+
+model SymbolProfile {
+  symbolId          String    @id
+  symbol            Symbol    @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+  industry          String?
+  marketCap         Decimal?  @db.Decimal(20, 2)
+  sharesOutstanding Decimal?  @db.Decimal(20, 8)
+  peRatio           Decimal?  @db.Decimal(20, 8)
+  week52High        Decimal?  @db.Decimal(20, 8)
+  week52Low         Decimal?  @db.Decimal(20, 8)
+  beta              Decimal?  @db.Decimal(20, 8)
+  dividendYield     Decimal?  @db.Decimal(20, 8)
+  logoUrl           String?
+  websiteUrl        String?
+  ipoDate           DateTime?
+  profileFetchedAt  DateTime?
+  metricsFetchedAt  DateTime?
+}
+
+model Candle {
+  id        String   @id @default(cuid())
+  symbolId  String
+  symbol    Symbol   @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+  timeframe String
+  time      DateTime
+  open      Decimal  @db.Decimal(20, 8)
+  high      Decimal  @db.Decimal(20, 8)
+  low       Decimal  @db.Decimal(20, 8)
+  close     Decimal  @db.Decimal(20, 8)
+  volume    Decimal  @db.Decimal(20, 8)
+  isFinal   Boolean  @default(true)
+
+  @@unique([symbolId, timeframe, time])
+  @@index([symbolId, timeframe, time])
+}
+
+model CandleCoverage {
+  id        String   @id @default(cuid())
+  symbolId  String
+  symbol    Symbol   @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+  timeframe String
+  from      DateTime
+  to        DateTime
+
+  @@index([symbolId, timeframe, from])
+}
+
 model AccountEquitySnapshot {
   id             String   @id @default(cuid())
   accountId      String

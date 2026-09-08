@@ -180,7 +180,7 @@ Server to client:
 ```json
 { "type": "quote", "symbol": "TSLA", "price": "251.3400", "size": "100", "at": "2026-09-08T14:30:01.123Z", "prevClose": "248.9000" }
 { "type": "bar", "symbol": "TSLA", "timeframe": "1m", "bar": { "time": "2026-09-08T14:30:00.000Z", "open": "251.10", "high": "251.40", "low": "251.05", "close": "251.34", "volume": "1200" }, "isFinal": false }
-{ "type": "market_status", "status": "open", "nextCloseAt": "2026-09-08T20:00:00.000Z" }
+{ "type": "market_status", "status": "open", "nextOpenAt": null, "nextCloseAt": "2026-09-08T20:00:00.000Z" }
 ```
 
 - `quote` messages are throttled to at most 4 per second per symbol per socket; the latest trade wins.
@@ -380,7 +380,8 @@ Runtime: Node 22 (`engines`, `render.yaml` `NODE_VERSION`, CI `node-version`, `d
 8. Alpaca polling fallback above 30 streamed symbols uses the multi-symbol endpoint `GET /v2/stocks/trades/latest?symbols=A,B,C` once per 5 seconds (one call, not one per symbol, to stay under 200 requests per minute).
 9. Finnhub profile and metrics: fetched synchronously with a 3 second timeout when the symbol has never been profiled; when present but stale the cached values are returned and the refresh runs in the background. Without a Finnhub key the `stats` and `industry` fields are `null`.
 10. Simulated provider exposes `emitTick()` so integration tests drive ticks without timers; `start()` installs the one-second interval only in `server.ts`. The default seed is a code constant; tests pass an explicit seed.
-11. Web WebSocket client becomes a module singleton in `apps/web/src/lib/ws.ts` (connect once per session, `subscribe`/`unsubscribe` helpers with reference counts, resubscribe after reconnect, `disconnect` called from `resetClientState`, which closes TD-32). The market store registers in `resetClientState`; `localStorage.recentSymbols` is cleared on reset, `localStorage.chartPrefs` survives as a device preference. `disconnect` also drops every message listener, so listeners are registered in component effects (re-added on mount) and every reset path ends in a navigation to `/login` that unmounts the authenticated layout. The access-token source is injected through `configureWsSession` from the auth store, mirroring `configureHttp`, so `lib/` never imports from `features/`.
+11. Web WebSocket client becomes a module singleton in `apps/web/src/lib/ws.ts` (connect once per session, `subscribe`/`unsubscribe` helpers with reference counts, resubscribe after reconnect, `disconnect` called from `resetClientState`, which closes TD-32). The market store registers in `resetClientState`; `localStorage.recentSymbols` is cleared on reset, `localStorage.chartPrefs` survives as a device preference. `disconnect` also drops every message listener, so listeners are registered in component effects (re-added on mount) and every reset path ends in a navigation to `/login` that unmounts the authenticated layout. The access-token source is injected through `configureWsSession` from the auth store, mirroring `configureHttp`, so `lib/` never imports from `features/`. For the same reason the reference-counted `subscribe`/`unsubscribe` helpers (and the resend of every active subscription after `auth_ok`) live in `lib/ws-session.ts`, while the dispatch of `quote`, `bar` and `market_status` messages into the market store lives in `features/market/stream.ts`, registered by a hook in the authenticated layout next to the account-summary listener.
+13. The only sanctioned `Decimal` to `number` conversions in the web app are inside `features/dashboard/mappers.ts` and `features/market/mappers.ts`, both feeding Lightweight Charts series data.
 12. Route param `/symbols/:symbol` is upper-cased on both sides before lookup.
 
 ## Acceptance criteria

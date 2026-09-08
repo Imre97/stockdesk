@@ -1,5 +1,27 @@
 import { z } from "zod";
 
+export const MARKET_DATA_PROVIDER_NAMES = ["alpaca", "finnhub", "simulated"] as const;
+
+export type MarketDataProviderName = (typeof MARKET_DATA_PROVIDER_NAMES)[number];
+
+const DEFAULT_MARKET_DATA_PROVIDERS = MARKET_DATA_PROVIDER_NAMES.join(",");
+
+const providerListSchema = z
+  .string()
+  .default(DEFAULT_MARKET_DATA_PROVIDERS)
+  .transform((value) =>
+    value
+      .split(",")
+      .map((name) => name.trim())
+      .filter((name) => name !== ""),
+  )
+  .pipe(z.array(z.enum(MARKET_DATA_PROVIDER_NAMES)).min(1));
+
+const optionalCredentialSchema = z
+  .string()
+  .optional()
+  .transform((value) => (value === undefined || value === "" ? undefined : value));
+
 const environmentSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3000),
@@ -19,6 +41,14 @@ const environmentSchema = z.object({
   SNAPSHOT_FINE_RETENTION_DAYS: z.coerce.number().int().positive().default(7),
   SNAPSHOT_COARSE_RETENTION_DAYS: z.coerce.number().int().positive().default(400),
   SNAPSHOT_THINNING_INTERVAL_HOURS: z.coerce.number().int().positive().default(24),
+  MARKET_DATA_PROVIDERS: providerListSchema,
+  ALPACA_API_KEY: optionalCredentialSchema,
+  ALPACA_API_SECRET: optionalCredentialSchema,
+  ALPACA_DATA_FEED: z.enum(["iex", "sip"]).default("iex"),
+  FINNHUB_API_KEY: optionalCredentialSchema,
+  SYMBOL_REFRESH_HOURS: z.coerce.number().int().positive().default(24),
+  QUOTE_THROTTLE_PER_SECOND: z.coerce.number().int().positive().default(4),
+  CANDLE_THINNING_INTERVAL_HOURS: z.coerce.number().int().positive().default(24),
 });
 
 export interface AppConfig {
@@ -40,6 +70,14 @@ export interface AppConfig {
   snapshotFineRetentionDays: number;
   snapshotCoarseRetentionDays: number;
   snapshotThinningIntervalHours: number;
+  marketDataProviders: MarketDataProviderName[];
+  alpacaApiKey: string | undefined;
+  alpacaApiSecret: string | undefined;
+  alpacaDataFeed: "iex" | "sip";
+  finnhubApiKey: string | undefined;
+  symbolRefreshHours: number;
+  quoteThrottlePerSecond: number;
+  candleThinningIntervalHours: number;
   isProduction: boolean;
 }
 
@@ -76,6 +114,14 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     snapshotFineRetentionDays: values.SNAPSHOT_FINE_RETENTION_DAYS,
     snapshotCoarseRetentionDays: values.SNAPSHOT_COARSE_RETENTION_DAYS,
     snapshotThinningIntervalHours: values.SNAPSHOT_THINNING_INTERVAL_HOURS,
+    marketDataProviders: values.MARKET_DATA_PROVIDERS,
+    alpacaApiKey: values.ALPACA_API_KEY,
+    alpacaApiSecret: values.ALPACA_API_SECRET,
+    alpacaDataFeed: values.ALPACA_DATA_FEED,
+    finnhubApiKey: values.FINNHUB_API_KEY,
+    symbolRefreshHours: values.SYMBOL_REFRESH_HOURS,
+    quoteThrottlePerSecond: values.QUOTE_THROTTLE_PER_SECOND,
+    candleThinningIntervalHours: values.CANDLE_THINNING_INTERVAL_HOURS,
     isProduction,
   };
 }

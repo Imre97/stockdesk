@@ -162,6 +162,109 @@ describe("loadConfig", () => {
     );
   });
 
+  it("defaults the market data providers to the full chain", () => {
+    expect(loadConfig(baseEnv).marketDataProviders).toEqual(["alpaca", "finnhub", "simulated"]);
+  });
+
+  it("parses a provider list with spaces around the names", () => {
+    const config = loadConfig({ ...baseEnv, MARKET_DATA_PROVIDERS: " simulated , alpaca " });
+
+    expect(config.marketDataProviders).toEqual(["simulated", "alpaca"]);
+  });
+
+  it("parses a single provider", () => {
+    expect(loadConfig({ ...baseEnv, MARKET_DATA_PROVIDERS: "simulated" }).marketDataProviders).toEqual(["simulated"]);
+  });
+
+  it("rejects an unknown provider name", () => {
+    expect(() => loadConfig({ ...baseEnv, MARKET_DATA_PROVIDERS: "alpaca,polygon" })).toThrowError(
+      /MARKET_DATA_PROVIDERS/,
+    );
+  });
+
+  it("rejects an empty provider list", () => {
+    expect(() => loadConfig({ ...baseEnv, MARKET_DATA_PROVIDERS: "" })).toThrowError(/MARKET_DATA_PROVIDERS/);
+    expect(() => loadConfig({ ...baseEnv, MARKET_DATA_PROVIDERS: " , " })).toThrowError(/MARKET_DATA_PROVIDERS/);
+  });
+
+  it("treats an empty provider credential as absent", () => {
+    const config = loadConfig({
+      ...baseEnv,
+      ALPACA_API_KEY: "",
+      ALPACA_API_SECRET: "",
+      FINNHUB_API_KEY: "",
+    });
+
+    expect(config.alpacaApiKey).toBeUndefined();
+    expect(config.alpacaApiSecret).toBeUndefined();
+    expect(config.finnhubApiKey).toBeUndefined();
+  });
+
+  it("leaves a missing provider credential undefined", () => {
+    const config = loadConfig(baseEnv);
+
+    expect(config.alpacaApiKey).toBeUndefined();
+    expect(config.alpacaApiSecret).toBeUndefined();
+    expect(config.finnhubApiKey).toBeUndefined();
+  });
+
+  it("parses provided provider credentials", () => {
+    const config = loadConfig({
+      ...baseEnv,
+      ALPACA_API_KEY: "test-alpaca-key",
+      ALPACA_API_SECRET: "test-alpaca-secret",
+      FINNHUB_API_KEY: "test-finnhub-key",
+    });
+
+    expect(config.alpacaApiKey).toBe("test-alpaca-key");
+    expect(config.alpacaApiSecret).toBe("test-alpaca-secret");
+    expect(config.finnhubApiKey).toBe("test-finnhub-key");
+  });
+
+  it("defaults ALPACA_DATA_FEED to iex", () => {
+    expect(loadConfig(baseEnv).alpacaDataFeed).toBe("iex");
+  });
+
+  it("parses the sip data feed and rejects an unknown one", () => {
+    expect(loadConfig({ ...baseEnv, ALPACA_DATA_FEED: "sip" }).alpacaDataFeed).toBe("sip");
+    expect(() => loadConfig({ ...baseEnv, ALPACA_DATA_FEED: "otc" })).toThrowError(/ALPACA_DATA_FEED/);
+  });
+
+  it("defaults the market data job settings", () => {
+    const config = loadConfig(baseEnv);
+
+    expect(config.symbolRefreshHours).toBe(24);
+    expect(config.quoteThrottlePerSecond).toBe(4);
+    expect(config.candleThinningIntervalHours).toBe(24);
+  });
+
+  it("parses provided market data job settings", () => {
+    const config = loadConfig({
+      ...baseEnv,
+      SYMBOL_REFRESH_HOURS: "6",
+      QUOTE_THROTTLE_PER_SECOND: "10",
+      CANDLE_THINNING_INTERVAL_HOURS: "12",
+    });
+
+    expect(config.symbolRefreshHours).toBe(6);
+    expect(config.quoteThrottlePerSecond).toBe(10);
+    expect(config.candleThinningIntervalHours).toBe(12);
+  });
+
+  it("rejects non-positive or non-integer market data job settings", () => {
+    expect(() => loadConfig({ ...baseEnv, SYMBOL_REFRESH_HOURS: "0" })).toThrowError(/SYMBOL_REFRESH_HOURS/);
+    expect(() => loadConfig({ ...baseEnv, SYMBOL_REFRESH_HOURS: "1.5" })).toThrowError(/SYMBOL_REFRESH_HOURS/);
+    expect(() => loadConfig({ ...baseEnv, QUOTE_THROTTLE_PER_SECOND: "-1" })).toThrowError(
+      /QUOTE_THROTTLE_PER_SECOND/,
+    );
+    expect(() => loadConfig({ ...baseEnv, QUOTE_THROTTLE_PER_SECOND: "many" })).toThrowError(
+      /QUOTE_THROTTLE_PER_SECOND/,
+    );
+    expect(() => loadConfig({ ...baseEnv, CANDLE_THINNING_INTERVAL_HOURS: "0" })).toThrowError(
+      /CANDLE_THINNING_INTERVAL_HOURS/,
+    );
+  });
+
   it("rejects a non-integer auth rate limit", () => {
     expect(() => loadConfig({ ...baseEnv, AUTH_RATE_LIMIT_MAX: "1.5" })).toThrowError(/AUTH_RATE_LIMIT_MAX/);
     expect(() => loadConfig({ ...baseEnv, AUTH_RATE_LIMIT_MAX: "ten" })).toThrowError(/AUTH_RATE_LIMIT_MAX/);

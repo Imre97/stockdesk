@@ -55,6 +55,12 @@ services:
         sync: false
       - key: FINNHUB_API_KEY
         sync: false
+      - key: SYMBOL_REFRESH_HOURS
+        sync: false
+      - key: QUOTE_THROTTLE_PER_SECOND
+        sync: false
+      - key: CANDLE_THINNING_INTERVAL_HOURS
+        sync: false
       - key: COMMISSION_PER_ORDER
         sync: false
       - key: MARKET_ORDER_BUFFER
