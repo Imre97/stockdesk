@@ -2,6 +2,7 @@ import type { Server } from "node:http";
 import { WebSocketServer, type RawData, type WebSocket } from "ws";
 import type { AppConfig } from "../lib/config.js";
 import { verifyAccessToken } from "../modules/auth/tokens.js";
+import { DEFAULT_HEARTBEAT_INTERVAL_MS, startHeartbeat, type HeartbeatTimers } from "./heartbeat.js";
 import { createUserRegistry, type UserRegistry } from "./user-registry.js";
 
 const DEFAULT_AUTH_TIMEOUT_MS = 5000;
@@ -13,6 +14,10 @@ const authenticatedSockets = new WeakMap<WebSocket, string>();
 export interface WebSocketServerOptions {
   authTimeoutMs?: number;
   registry?: UserRegistry;
+  heartbeatIntervalMs?: number;
+  heartbeatTimers?: HeartbeatTimers | undefined;
+  onAuthenticated?: (socket: WebSocket, userId: string) => void;
+  onMessage?: (socket: WebSocket, raw: RawData) => void;
 }
 
 export function wsAuthenticatedUserId(socket: WebSocket): string | undefined {
@@ -44,11 +49,28 @@ export function attachWebSocketServer(
   const wss = new WebSocketServer({ server, path: "/ws" });
   const authTimeoutMs = options.authTimeoutMs ?? DEFAULT_AUTH_TIMEOUT_MS;
   const registry = options.registry ?? createUserRegistry();
+  const heartbeatIntervalMs = options.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS;
+
+  if (heartbeatIntervalMs > 0) {
+    const heartbeat = startHeartbeat({
+      sockets: () => wss.clients,
+      intervalMs: heartbeatIntervalMs,
+      timers: options.heartbeatTimers,
+    });
+
+    wss.on("close", () => {
+      heartbeat.stop();
+    });
+  }
 
   wss.on("connection", (socket) => {
     const timer = setTimeout(() => {
       socket.close(UNAUTHORIZED_CODE, UNAUTHORIZED_REASON);
     }, authTimeoutMs);
+
+    const onLaterMessage = (raw: RawData): void => {
+      options.onMessage?.(socket, raw);
+    };
 
     const onFirstMessage = (raw: RawData): void => {
       clearTimeout(timer);
@@ -73,6 +95,8 @@ export function attachWebSocketServer(
       authenticatedSockets.set(socket, userId);
       registry.add(userId, socket);
       socket.send(JSON.stringify({ type: "auth_ok", userId }));
+      socket.on("message", onLaterMessage);
+      options.onAuthenticated?.(socket, userId);
     };
 
     socket.on("message", onFirstMessage);

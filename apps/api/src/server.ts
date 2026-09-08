@@ -12,7 +12,7 @@ import type { ProviderSocketFactory } from "./modules/market/providers/reconnect
 import { systemTimers } from "./modules/market/providers/reconnecting-socket.js";
 import { createSimulatedProvider } from "./modules/market/providers/simulated/provider.js";
 import { createMarketRuntime } from "./modules/market/runtime.js";
-import { attachWebSocketServer } from "./ws/auth-handshake.js";
+import { createMarketGateway } from "./ws/market-gateway.js";
 import { createUserRegistry } from "./ws/user-registry.js";
 
 const SIMULATED_TICK_INTERVAL_MS = 1000;
@@ -56,7 +56,7 @@ const market = createMarketRuntime({ config, providers, log });
 
 const server = createServer(createApp({ config, deps: { broadcast }, market }));
 
-attachWebSocketServer(server, config, { registry });
+createMarketGateway({ server, config, registry, runtime: market, log });
 
 server.listen(config.port, () => {
   process.stdout.write(`StockDesk API listening on port ${config.port}\n`);
