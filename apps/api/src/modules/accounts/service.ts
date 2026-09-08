@@ -3,6 +3,8 @@ import type {
   EquityPointDto,
   EquityRange,
   PositionDto,
+  TradesQuery,
+  TradesResponseDto,
   TransactionsPageDto,
   TransactionsQuery,
 } from "@stockdesk/shared";
@@ -44,6 +46,7 @@ export interface AccountsService {
     accountId: string,
     query: TransactionsQuery,
   ) => Promise<TransactionsPageDto>;
+  trades: (userId: string, accountId: string, query: TradesQuery) => Promise<TradesResponseDto>;
 }
 
 export async function requireOwnedAccount(
@@ -59,7 +62,7 @@ export async function requireOwnedAccount(
 
 export function createAccountsService(dependencies: AccountsDependencies = {}): AccountsService {
   async function summarize(account: repository.AccountRecord): Promise<AccountSummaryDto> {
-    const [summary] = await summarizeAccounts([account], currentTime(dependencies));
+    const [summary] = await summarizeAccounts([account], currentTime(dependencies), dependencies);
 
     if (summary === undefined) throw accountNotFound();
 
@@ -68,7 +71,11 @@ export function createAccountsService(dependencies: AccountsDependencies = {}): 
 
   return {
     async list(userId: string): Promise<AccountSummaryDto[]> {
-      return await summarizeAccounts(await repository.listAccounts(userId), currentTime(dependencies));
+      return await summarizeAccounts(
+        await repository.listAccounts(userId),
+        currentTime(dependencies),
+        dependencies,
+      );
     },
 
     async create(userId: string, name: string): Promise<AccountSummaryDto> {
@@ -101,6 +108,12 @@ export function createAccountsService(dependencies: AccountsDependencies = {}): 
       await requireOwnedAccount(userId, accountId);
 
       return await loadEquityPoints(accountId, range, currentTime(dependencies));
+    },
+
+    async trades(userId: string, accountId: string, _query: TradesQuery): Promise<TradesResponseDto> {
+      await requireOwnedAccount(userId, accountId);
+
+      return { trades: [], nextCursor: null };
     },
 
     async transactions(

@@ -1,8 +1,9 @@
 import type { AccountSummaryDto, ServerMessage } from "@stockdesk/shared";
+import type { PriceService } from "../market/price-service.js";
 import { lastElapsedSessionOpen } from "./ny-time.js";
 import { listAccounts, listAllAccounts, type AccountRecord } from "./repository.js";
 import { referenceEquities, truncateToSecond, writeSnapshots } from "./snapshot-repository.js";
-import { accountEquity, toAccountSummary } from "./summary.js";
+import { accountEquity, toAccountSummary, valuePositions, type PositionInput } from "./summary.js";
 
 export type Broadcast = (userId: string, message: ServerMessage) => void;
 
@@ -10,6 +11,7 @@ export interface AccountsDependencies {
   broadcast?: Broadcast | undefined;
   now?: (() => Date) | undefined;
   reportError?: ((message: string) => void) | undefined;
+  prices?: Pick<PriceService, "getLastPrice" | "getPrevClose"> | undefined;
 }
 
 export function currentTime(dependencies: AccountsDependencies): Date {
@@ -23,13 +25,26 @@ function defaultReportError(message: string): void {
 export async function summarizeAccounts(
   accounts: AccountRecord[],
   now: Date,
+  dependencies: AccountsDependencies = {},
+  positionsByAccount: Map<string, PositionInput[]> = new Map(),
 ): Promise<AccountSummaryDto[]> {
   const references = await referenceEquities(
     accounts.map((account) => account.id),
     lastElapsedSessionOpen(now),
   );
 
-  return accounts.map((account) => toAccountSummary(account, references.get(account.id)));
+  const summaries: AccountSummaryDto[] = [];
+
+  for (const account of accounts) {
+    const values = await valuePositions(
+      positionsByAccount.get(account.id) ?? [],
+      dependencies.prices,
+    );
+
+    summaries.push(toAccountSummary(account, references.get(account.id), values));
+  }
+
+  return summaries;
 }
 
 function groupByUser(accounts: AccountRecord[]): Map<string, AccountRecord[]> {
@@ -61,7 +76,10 @@ async function snapshotAndBroadcast(
   if (broadcast === undefined) return;
 
   for (const [userId, owned] of groupByUser(accounts)) {
-    broadcast(userId, { type: "account_summary", accounts: await summarizeAccounts(owned, now) });
+    broadcast(userId, {
+      type: "account_summary",
+      accounts: await summarizeAccounts(owned, now, dependencies),
+    });
   }
 }
 

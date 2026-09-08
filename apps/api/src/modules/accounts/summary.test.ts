@@ -1,6 +1,6 @@
 import { Decimal } from "@stockdesk/shared";
 import { describe, expect, it } from "vitest";
-import { accountEquity, toAccountSummary } from "./summary.js";
+import { accountEquity, toAccountSummary, valuePositions } from "./summary.js";
 
 const account = {
   id: "acc-1",
@@ -61,5 +61,53 @@ describe("toAccountSummary", () => {
 
     expect(summary.cash).toBe("1.00");
     expect(summary.equity).toBe("1.00");
+  });
+});
+
+describe("valuePositions", () => {
+  const prices = {
+    getLastPrice: async (symbol: string): Promise<Decimal | null> =>
+      symbol === "TSLA" ? new Decimal("251.30") : null,
+    getPrevClose: async (): Promise<Decimal | null> => new Decimal("248.90"),
+  };
+
+  it("values a position with the price service", async () => {
+    const values = await valuePositions(
+      [{ symbol: "TSLA", quantity: new Decimal("10"), averageCost: new Decimal("200") }],
+      prices,
+    );
+
+    expect(values.positionsValue.toString()).toBe("2513");
+    expect(values.unrealizedPnl.toString()).toBe("513");
+  });
+
+  it("carries the valued position into the account summary", async () => {
+    const values = await valuePositions(
+      [{ symbol: "TSLA", quantity: new Decimal("10"), averageCost: new Decimal("200") }],
+      prices,
+    );
+    const summary = toAccountSummary(account, undefined, values);
+
+    expect(summary.positionsValue).toBe("2513.00");
+    expect(summary.equity).toBe("102513.00");
+    expect(summary.unrealizedPnl).toBe("513.00");
+    expect(summary.unrealizedPnlPct).toBe("25.65");
+  });
+
+  it("falls back to the cost basis when no price is known", async () => {
+    const values = await valuePositions(
+      [{ symbol: "AAPL", quantity: new Decimal("4"), averageCost: new Decimal("100") }],
+      prices,
+    );
+
+    expect(values.positionsValue.toString()).toBe("400");
+    expect(values.unrealizedPnl.isZero()).toBe(true);
+  });
+
+  it("returns zero without positions", async () => {
+    const values = await valuePositions([], prices);
+
+    expect(values.positionsValue.isZero()).toBe(true);
+    expect(values.unrealizedPnl.isZero()).toBe(true);
   });
 });

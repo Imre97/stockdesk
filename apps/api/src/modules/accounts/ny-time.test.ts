@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isNyTradingDay,
   isNyWeekday,
   lastElapsedSessionOpen,
   lastNWeekdaysWindow,
@@ -58,9 +59,15 @@ describe("lastElapsedSessionOpen", () => {
     );
   });
 
-  it("returns the previous weekday before 09:30", () => {
+  it("returns the previous trading day before 09:30, skipping Labor Day", () => {
     expect(lastElapsedSessionOpen(at("2026-09-08T12:00:00.000Z")).toISOString()).toBe(
-      "2026-09-07T13:30:00.000Z",
+      "2026-09-04T13:30:00.000Z",
+    );
+  });
+
+  it("points back over the observed Independence Day holiday", () => {
+    expect(lastElapsedSessionOpen(at("2026-07-06T12:00:00.000Z")).toISOString()).toBe(
+      "2026-07-02T13:30:00.000Z",
     );
   });
 
@@ -97,6 +104,13 @@ describe("nyTradingDayWindow", () => {
     expect(window.to.toISOString()).toBe("2026-09-09T04:00:00.000Z");
   });
 
+  it("covers the previous session on a holiday", () => {
+    const window = nyTradingDayWindow(at("2026-11-26T18:00:00.000Z"));
+
+    expect(window.from.toISOString()).toBe("2026-11-25T05:00:00.000Z");
+    expect(window.to.toISOString()).toBe("2026-11-26T05:00:00.000Z");
+  });
+
   it("covers the last weekday on a weekend", () => {
     const window = nyTradingDayWindow(at("2026-09-06T18:00:00.000Z"));
 
@@ -106,10 +120,10 @@ describe("nyTradingDayWindow", () => {
 });
 
 describe("lastNWeekdaysWindow", () => {
-  it("skips the weekend when counting five trading days", () => {
+  it("skips the weekend and Labor Day when counting five trading days", () => {
     const window = lastNWeekdaysWindow(at("2026-09-08T18:00:00.000Z"), 5);
 
-    expect(window.from.toISOString()).toBe("2026-09-02T04:00:00.000Z");
+    expect(window.from.toISOString()).toBe("2026-09-01T04:00:00.000Z");
     expect(window.to.toISOString()).toBe("2026-09-09T04:00:00.000Z");
   });
 
@@ -118,5 +132,20 @@ describe("lastNWeekdaysWindow", () => {
 
     expect(window.from.toISOString()).toBe("2026-08-31T04:00:00.000Z");
     expect(window.to.toISOString()).toBe("2026-09-05T04:00:00.000Z");
+  });
+});
+
+describe("isNyTradingDay", () => {
+  it("accepts a regular weekday", () => {
+    expect(isNyTradingDay(at("2026-09-08T12:00:00.000Z"))).toBe(true);
+  });
+
+  it("rejects a weekend day", () => {
+    expect(isNyTradingDay(at("2026-09-05T12:00:00.000Z"))).toBe(false);
+  });
+
+  it("rejects a New York Stock Exchange holiday", () => {
+    expect(isNyTradingDay(at("2026-09-07T12:00:00.000Z"))).toBe(false);
+    expect(isNyTradingDay(at("2026-11-26T12:00:00.000Z"))).toBe(false);
   });
 });

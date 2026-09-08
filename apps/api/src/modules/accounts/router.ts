@@ -2,6 +2,7 @@ import {
   createAccountSchema,
   equityRangeSchema,
   renameAccountSchema,
+  tradesQuerySchema,
   transactionsQuerySchema,
 } from "@stockdesk/shared";
 import { Router, type Request } from "express";
@@ -74,6 +75,12 @@ export function createAccountsRouter(
     const input = parseDepositBody(request.body);
 
     response.status(201).json(await deposit(callerId(request), accountId(request), input));
+  });
+
+  router.get("/:id/trades", async (request, response) => {
+    const query = tradesQuerySchema.parse(request.query);
+
+    response.status(200).json(await service.trades(callerId(request), accountId(request), query));
   });
 
   router.get("/:id/transactions", async (request, response) => {

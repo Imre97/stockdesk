@@ -12,6 +12,8 @@ import { createAccountsRouter } from "./modules/accounts/router.js";
 import type { AccountsDependencies } from "./modules/accounts/snapshot-writer.js";
 import { createAuthRouter } from "./modules/auth/router.js";
 import { createHealthRouter, type DatabaseCheck } from "./modules/health/router.js";
+import { createMarketRouter } from "./modules/market/router.js";
+import { createMarketRuntime, type MarketRuntime } from "./modules/market/runtime.js";
 import { createSettingsRouter } from "./modules/settings/router.js";
 import { mountStaticWeb } from "./static-web.js";
 
@@ -31,6 +33,12 @@ export interface CreateAppOptions {
   config?: AppConfig;
   checkDatabase?: DatabaseCheck;
   deps?: AccountsDependencies;
+  market?: MarketRuntime;
+}
+
+function reportToStderr(message: string): void {
+  process.stderr.write(`${message}
+`);
 }
 
 function buildAuthRateLimiter(
@@ -54,7 +62,11 @@ function buildAuthRateLimiter(
 
 export function createApp(options: CreateAppOptions = {}): express.Express {
   const config = options.config ?? getConfig();
-  const dependencies = options.deps ?? {};
+  const market = options.market ?? createMarketRuntime({ config, log: reportToStderr });
+  const dependencies: AccountsDependencies = {
+    ...(options.deps ?? {}),
+    prices: options.deps?.prices ?? market.priceService,
+  };
   const app = express();
 
   app.disable("x-powered-by");
@@ -70,6 +82,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   apiRouter.use("/health", createHealthRouter(options.checkDatabase));
   apiRouter.use("/auth", createAuthRouter(config, authRateLimiter, dependencies));
   apiRouter.use("/accounts", createAccountsRouter(config, dependencies));
+  apiRouter.use("/market", createMarketRouter(config, market));
   apiRouter.use("/settings", createSettingsRouter(config));
   app.use("/api/v1", apiRouter);
   app.use("/api/v1", (_request, _response, next) => {

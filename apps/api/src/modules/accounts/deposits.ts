@@ -54,7 +54,7 @@ export function createDepositService(dependencies: AccountsDependencies = {}): D
 
     await afterCashChange(userId, dependencies);
 
-    const [account] = await summarizeAccounts([result.account], currentTime(dependencies));
+    const [account] = await summarizeAccounts([result.account], currentTime(dependencies), dependencies);
 
     if (account === undefined) throw accountNotFound();
 

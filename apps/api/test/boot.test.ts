@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runBootTasks } from "../src/boot.js";
 import type { SnapshotJob } from "../src/modules/accounts/snapshot-job.js";
+import type { MarketJobs } from "../src/modules/market/jobs.js";
 import { loadConfig } from "../src/lib/config.js";
 import { prisma } from "../src/lib/prisma.js";
 import { truncateAll } from "./db.js";
@@ -24,6 +25,32 @@ function stubSnapshotJob(calls: JobCalls): SnapshotJob {
       return Promise.resolve();
     },
     runThinning: () => {
+      calls.thinnings += 1;
+      return Promise.resolve();
+    },
+    start: () => {
+      calls.starts += 1;
+    },
+    stop: () => {
+      calls.stops += 1;
+    },
+  };
+}
+
+interface MarketCalls {
+  refreshes: number;
+  thinnings: number;
+  starts: number;
+  stops: number;
+}
+
+function stubMarketJobs(calls: MarketCalls, failing = false): MarketJobs {
+  return {
+    runSymbolRefresh: () => {
+      calls.refreshes += 1;
+      return failing ? Promise.reject(new Error("provider unreachable")) : Promise.resolve();
+    },
+    runCandleThinning: () => {
       calls.thinnings += 1;
       return Promise.resolve();
     },
@@ -121,6 +148,40 @@ describe("runBootTasks", () => {
 
     tasks.stop();
     expect(calls.stops).toBe(1);
+  });
+
+  it("refreshes the symbol master, thins the candles and starts the market jobs", async () => {
+    const calls: MarketCalls = { refreshes: 0, thinnings: 0, starts: 0, stops: 0 };
+
+    const tasks = await runBootTasks(config, {
+      snapshotJob: stubSnapshotJob({ ticks: 0, thinnings: 0, starts: 0, stops: 0 }),
+      pruneExpiredRefreshTokens: () => Promise.resolve(0),
+      marketJobs: stubMarketJobs(calls),
+    });
+
+    await tasks.marketReady;
+    expect(calls).toEqual({ refreshes: 1, thinnings: 1, starts: 1, stops: 0 });
+
+    tasks.stop();
+    expect(calls.stops).toBe(1);
+  });
+
+  it("keeps serving when the market boot tasks fail", async () => {
+    const reported: string[] = [];
+    const calls: MarketCalls = { refreshes: 0, thinnings: 0, starts: 0, stops: 0 };
+
+    const tasks = await runBootTasks(config, {
+      snapshotJob: stubSnapshotJob({ ticks: 0, thinnings: 0, starts: 0, stops: 0 }),
+      pruneExpiredRefreshTokens: () => Promise.resolve(0),
+      marketJobs: stubMarketJobs(calls, true),
+      reportError: (message) => reported.push(message),
+    });
+
+    await tasks.marketReady;
+    tasks.stop();
+
+    expect(calls.thinnings).toBe(0);
+    expect(reported.some((message) => message.includes("provider unreachable"))).toBe(true);
   });
 
   it("reports a failing prune without throwing", async () => {

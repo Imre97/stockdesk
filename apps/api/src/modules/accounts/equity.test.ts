@@ -24,10 +24,10 @@ describe("rangeWindow", () => {
     expect(window.to.toISOString()).toBe("2026-09-09T04:00:00.000Z");
   });
 
-  it("covers the last five weekdays for 5D", () => {
+  it("covers the last five trading days for 5D, skipping Labor Day", () => {
     const window = rangeWindow("5D", NOW);
 
-    expect(window.from.toISOString()).toBe("2026-09-02T04:00:00.000Z");
+    expect(window.from.toISOString()).toBe("2026-09-01T04:00:00.000Z");
     expect(window.to.toISOString()).toBe("2026-09-09T04:00:00.000Z");
   });
 
