@@ -1,0 +1,21 @@
+{
+  "equityChart.empty": "Ehhez az időszakhoz még nincs számlaérték-előzmény.",
+  "equityChart.range.oneDay": "1N",
+  "equityChart.range.fiveDays": "5N",
+  "equityChart.range.oneWeek": "1H",
+  "equityChart.range.oneMonth": "1HÓ",
+  "equityChart.range.oneYear": "1É",
+  "accountHeader.equity": "Számlaérték",
+  "accountHeader.daily": "Napi",
+  "positions.title": "Pozíciók",
+  "positions.symbol": "Szimbólum",
+  "positions.quantity": "Mennyiség",
+  "positions.averageCost": "Átlagár",
+  "positions.lastPrice": "Utolsó ár",
+  "positions.marketValue": "Piaci érték",
+  "positions.unrealizedPnl": "Nem realizált eredmény",
+  "positions.unrealizedPnlPct": "Nem realizált eredmény %",
+  "positions.dailyChange": "Napi",
+  "positions.dailyChangePct": "Napi %",
+  "positions.empty": "Ezen a számlán nincs nyitott pozíció."
+}

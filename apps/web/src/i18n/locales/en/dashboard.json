@@ -1,0 +1,21 @@
+{
+  "equityChart.empty": "No equity history for this range yet.",
+  "equityChart.range.oneDay": "1D",
+  "equityChart.range.fiveDays": "5D",
+  "equityChart.range.oneWeek": "1W",
+  "equityChart.range.oneMonth": "1M",
+  "equityChart.range.oneYear": "1Y",
+  "accountHeader.equity": "Equity",
+  "accountHeader.daily": "Day",
+  "positions.title": "Positions",
+  "positions.symbol": "Symbol",
+  "positions.quantity": "Quantity",
+  "positions.averageCost": "Average cost",
+  "positions.lastPrice": "Last price",
+  "positions.marketValue": "Market value",
+  "positions.unrealizedPnl": "Unrealized P&L",
+  "positions.unrealizedPnlPct": "Unrealized P&L %",
+  "positions.dailyChange": "Day",
+  "positions.dailyChangePct": "Day %",
+  "positions.empty": "No open positions on this account."
+}

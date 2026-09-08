@@ -1,11 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useRegisterForm } from "../hooks";
 
-const FIELD_CLASS = "rounded border border-neutral-300 px-3 py-2 text-sm";
-const LABEL_CLASS = "text-sm font-medium text-neutral-700";
-const ERROR_CLASS = "text-sm text-red-700";
+const ERROR_CLASS = "text-sm text-destructive";
 
 export function RegisterForm() {
   const { t } = useTranslation();
@@ -13,13 +14,10 @@ export function RegisterForm() {
 
   return (
     <form className="flex flex-col gap-4" noValidate onSubmit={submit}>
-      <div className="flex flex-col gap-1">
-        <label className={LABEL_CLASS} htmlFor="register-display-name">
-          {t("auth:fields.displayName")}
-        </label>
-        <input
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="register-display-name">{t("auth:fields.displayName")}</Label>
+        <Input
           autoComplete="nickname"
-          className={FIELD_CLASS}
           id="register-display-name"
           name="displayName"
           onChange={(event) => setField("displayName", event.target.value)}
@@ -33,13 +31,10 @@ export function RegisterForm() {
         )}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className={LABEL_CLASS} htmlFor="register-email">
-          {t("auth:fields.email")}
-        </label>
-        <input
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="register-email">{t("auth:fields.email")}</Label>
+        <Input
           autoComplete="email"
-          className={FIELD_CLASS}
           id="register-email"
           name="email"
           onChange={(event) => setField("email", event.target.value)}
@@ -53,13 +48,10 @@ export function RegisterForm() {
         )}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className={LABEL_CLASS} htmlFor="register-password">
-          {t("auth:fields.password")}
-        </label>
-        <input
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="register-password">{t("auth:fields.password")}</Label>
+        <Input
           autoComplete="new-password"
-          className={FIELD_CLASS}
           id="register-password"
           name="password"
           onChange={(event) => setField("password", event.target.value)}
@@ -79,16 +71,15 @@ export function RegisterForm() {
         </p>
       )}
 
-      <button
-        className="rounded bg-neutral-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-        disabled={submitting}
-        type="submit"
-      >
+      <Button disabled={submitting} type="submit">
         {t("auth:register.submit")}
-      </button>
+      </Button>
 
-      <p className="text-sm text-neutral-600">
-        {t("auth:register.loginPrompt")} <Link to="/login">{t("auth:register.loginLink")}</Link>
+      <p className="text-sm text-muted-foreground">
+        {t("auth:register.loginPrompt")}{" "}
+        <Link className="text-primary underline-offset-4 hover:underline" to="/login">
+          {t("auth:register.loginLink")}
+        </Link>
       </p>
     </form>
   );

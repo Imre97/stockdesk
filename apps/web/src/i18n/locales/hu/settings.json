@@ -1,0 +1,14 @@
+{
+  "title": "Beállítások",
+  "language.label": "Nyelv",
+  "language.en": "Angol",
+  "language.hu": "Magyar",
+  "theme.label": "Téma",
+  "theme.light": "Világos",
+  "theme.dark": "Sötét",
+  "theme.system": "Rendszer",
+  "defaultAccount.label": "Alapértelmezett számla",
+  "save": "Beállítások mentése",
+  "saved": "A beállításokat mentettük.",
+  "defaultAccount.none": "Nincs alapértelmezett számla"
+}

@@ -1,0 +1,19 @@
+{
+  "brand": "StockDesk",
+  "nav.portfolio": "Portfólió",
+  "nav.reports": "Jelentések",
+  "nav.deposit": "Befizetés",
+  "sidebar.accounts": "Számlák",
+  "sidebar.newAccount": "Új számla",
+  "sidebar.collapse": "Oldalsáv összecsukása",
+  "sidebar.expand": "Oldalsáv kinyitása",
+  "profile.menu": "Fiók menü",
+  "profile.language": "Nyelv",
+  "profile.theme": "Téma",
+  "profile.settings": "Beállítások",
+  "profile.signOut": "Kijelentkezés",
+  "search.placeholder": "Keressen egy szimbólumot",
+  "search.disabledTooltip": "A szimbólumkeresés a piaci adatok modullal érkezik.",
+  "sidebar.openMenu": "Navigáció megnyitása",
+  "sidebar.closeMenu": "Navigáció bezárása"
+}

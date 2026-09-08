@@ -1,5 +1,9 @@
 {
   "app.name": "StockDesk",
-  "home.title": "StockDesk",
-  "home.placeholder": "Az irányítópult a következő modullal érkezik."
+  "actions.close": "Bezárás",
+  "actions.cancel": "Mégse",
+  "loading": "Betöltés",
+  "retry": "Próbálja újra",
+  "reports.title": "Jelentések",
+  "reports.body": "A portfóliójelentések a jelentések modullal érkeznek."
 }

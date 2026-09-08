@@ -1,5 +1,9 @@
 {
   "app.name": "StockDesk",
-  "home.title": "StockDesk",
-  "home.placeholder": "The dashboard arrives with the next module."
+  "actions.close": "Close",
+  "actions.cancel": "Cancel",
+  "loading": "Loading",
+  "retry": "Try again",
+  "reports.title": "Reports",
+  "reports.body": "Portfolio reports arrive with the reports module."
 }

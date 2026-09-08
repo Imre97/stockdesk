@@ -1,0 +1,18 @@
+{
+  "row.equity": "Equity",
+  "row.unrealized": "Unrealized",
+  "row.daily": "Day",
+  "create.title": "New account",
+  "create.nameLabel": "Account name",
+  "create.submit": "Create account",
+  "rename.title": "Rename account",
+  "rename.nameLabel": "Account name",
+  "rename.submit": "Save name",
+  "cancel": "Cancel",
+  "errors.ACCOUNT_NAME_TAKEN": "You already have an account with this name.",
+  "errors.ACCOUNT_LIMIT_REACHED": "You reached the maximum number of accounts.",
+  "errors.generic": "The account could not be saved. Try again.",
+  "row.expand": "Show account details",
+  "row.collapse": "Hide account details",
+  "row.rename": "Rename account"
+}

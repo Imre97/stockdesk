@@ -1,0 +1,19 @@
+{
+  "deposit.title": "Deposit funds",
+  "deposit.accountLabel": "Account",
+  "deposit.amountLabel": "Amount",
+  "deposit.noteLabel": "Note",
+  "deposit.notePlaceholder": "Optional note",
+  "deposit.submit": "Deposit",
+  "deposit.success": "The deposit was credited to the account.",
+  "errors.DEPOSIT_LIMIT_EXCEEDED": "A single deposit may not exceed the deposit limit.",
+  "errors.amountInvalid": "Enter an amount greater than zero with at most two decimals.",
+  "errors.generic": "The deposit could not be completed. Try again.",
+  "transactions.title": "Recent transactions",
+  "transactions.date": "Date",
+  "transactions.type": "Type",
+  "transactions.amount": "Amount",
+  "transactions.balanceAfter": "Balance after",
+  "transactions.empty": "No transactions on this account yet.",
+  "deposit.currency": "USD"
+}

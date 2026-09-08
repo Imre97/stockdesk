@@ -1,15 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+
+import { AuthLayout } from "../components/AuthLayout";
 import { RegisterForm } from "../features/auth/components/RegisterForm";
 
 function RegisterPage() {
   const { t } = useTranslation();
 
   return (
-    <main className="mx-auto flex max-w-sm flex-col gap-6 p-8">
-      <h1 className="text-2xl font-semibold">{t("auth:register.title")}</h1>
+    <AuthLayout title={t("auth:register.title")}>
       <RegisterForm />
-    </main>
+    </AuthLayout>
   );
 }
 

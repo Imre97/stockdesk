@@ -1,0 +1,19 @@
+{
+  "deposit.title": "Pénz befizetése",
+  "deposit.accountLabel": "Számla",
+  "deposit.amountLabel": "Összeg",
+  "deposit.noteLabel": "Megjegyzés",
+  "deposit.notePlaceholder": "Nem kötelező megjegyzés",
+  "deposit.submit": "Befizetés",
+  "deposit.success": "A befizetés jóváírásra került a számlán.",
+  "errors.DEPOSIT_LIMIT_EXCEEDED": "Egy befizetés nem haladhatja meg a befizetési korlátot.",
+  "errors.amountInvalid": "Adjon meg nullánál nagyobb összeget, legfeljebb két tizedesjeggyel.",
+  "errors.generic": "A befizetést nem sikerült végrehajtani. Próbálja újra.",
+  "transactions.title": "Legutóbbi tranzakciók",
+  "transactions.date": "Dátum",
+  "transactions.type": "Típus",
+  "transactions.amount": "Összeg",
+  "transactions.balanceAfter": "Egyenleg utána",
+  "transactions.empty": "Ezen a számlán még nincs tranzakció.",
+  "deposit.currency": "USD"
+}

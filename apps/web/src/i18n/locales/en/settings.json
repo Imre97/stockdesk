@@ -1,0 +1,14 @@
+{
+  "title": "Settings",
+  "language.label": "Language",
+  "language.en": "English",
+  "language.hu": "Hungarian",
+  "theme.label": "Theme",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+  "theme.system": "System",
+  "defaultAccount.label": "Default account",
+  "save": "Save settings",
+  "saved": "Your settings were saved.",
+  "defaultAccount.none": "No default account"
+}

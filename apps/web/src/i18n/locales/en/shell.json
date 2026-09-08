@@ -1,0 +1,19 @@
+{
+  "brand": "StockDesk",
+  "nav.portfolio": "Portfolio",
+  "nav.reports": "Reports",
+  "nav.deposit": "Deposit",
+  "sidebar.accounts": "Accounts",
+  "sidebar.newAccount": "New account",
+  "sidebar.collapse": "Collapse sidebar",
+  "sidebar.expand": "Expand sidebar",
+  "profile.menu": "Account menu",
+  "profile.language": "Language",
+  "profile.theme": "Theme",
+  "profile.settings": "Settings",
+  "profile.signOut": "Sign out",
+  "search.placeholder": "Search a symbol",
+  "search.disabledTooltip": "Symbol search arrives with the market data module.",
+  "sidebar.openMenu": "Open the navigation",
+  "sidebar.closeMenu": "Close the navigation"
+}

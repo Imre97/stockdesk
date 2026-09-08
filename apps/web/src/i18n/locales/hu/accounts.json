@@ -1,0 +1,18 @@
+{
+  "row.equity": "Számlaérték",
+  "row.unrealized": "Nem realizált",
+  "row.daily": "Napi",
+  "create.title": "Új számla",
+  "create.nameLabel": "Számla neve",
+  "create.submit": "Számla létrehozása",
+  "rename.title": "Számla átnevezése",
+  "rename.nameLabel": "Számla neve",
+  "rename.submit": "Név mentése",
+  "cancel": "Mégse",
+  "errors.ACCOUNT_NAME_TAKEN": "Már van ilyen nevű számlája.",
+  "errors.ACCOUNT_LIMIT_REACHED": "Elérte a számlák maximális számát.",
+  "errors.generic": "A számlát nem sikerült menteni. Próbálja újra.",
+  "row.expand": "Számla részleteinek megjelenítése",
+  "row.collapse": "Számla részleteinek elrejtése",
+  "row.rename": "Számla átnevezése"
+}

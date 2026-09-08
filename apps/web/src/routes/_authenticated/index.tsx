@@ -1,30 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { useCurrentUser, useLogout } from "../../features/auth/hooks";
 
-function DashboardPage() {
-  const { t } = useTranslation();
-  const user = useCurrentUser();
-  const logout = useLogout();
+import { useActiveAccountView } from "../../features/accounts/hooks";
+import { AccountHeader } from "../../features/dashboard/components/AccountHeader";
+import { EquityChart } from "../../features/dashboard/components/EquityChart";
+import { PositionsTable } from "../../features/dashboard/components/PositionsTable";
+import { RangeSelector } from "../../features/dashboard/components/RangeSelector";
+import { useEquityRange, usePositionRows } from "../../features/dashboard/hooks";
+
+function PortfolioPage() {
+  const { t } = useTranslation("dashboard");
+  const account = useActiveAccountView();
+  const { range, setRange } = useEquityRange();
+  const rows = usePositionRows();
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-4 p-8">
-      <h1 className="text-2xl font-semibold">{t("home.title")}</h1>
-      {user !== null && (
-        <p className="text-sm text-neutral-600">
-          {t("auth:dashboard.greeting", { displayName: user.displayName })}
-        </p>
-      )}
-      <p className="text-sm text-neutral-600">{t("home.placeholder")}</p>
-      <button
-        className="self-start rounded border border-neutral-300 px-3 py-2 text-sm font-medium"
-        onClick={logout}
-        type="button"
-      >
-        {t("auth:dashboard.signOut")}
-      </button>
-    </main>
+    <div className="flex flex-col gap-4">
+      <AccountHeader account={account} />
+      <section className="flex flex-col gap-2">
+        <RangeSelector onChange={setRange} value={range} />
+        <EquityChart range={range} />
+      </section>
+      <section className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold">{t("positions.title")}</h2>
+        <PositionsTable rows={rows} />
+      </section>
+    </div>
   );
 }
 
-export const Route = createFileRoute("/_authenticated/")({ component: DashboardPage });
+export const Route = createFileRoute("/_authenticated/")({ component: PortfolioPage });

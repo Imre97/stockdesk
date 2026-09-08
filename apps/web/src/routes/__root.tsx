@@ -9,7 +9,7 @@ function RootLayout() {
   return (
     <I18nextProvider i18n={i18n}>
       <QueryClientProvider client={queryClient}>
-        <div className="min-h-screen bg-white text-neutral-900">
+        <div className="min-h-screen bg-background text-foreground">
           <Outlet />
         </div>
       </QueryClientProvider>
