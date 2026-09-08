@@ -59,7 +59,7 @@ const stockdeskPlugin = {
   },
 };
 
-const sourceGlobs = ["apps/api/src/**", "apps/web/src/**", "packages/shared/src/**"];
+const sourceGlobs = ["apps/api/src/**", "apps/api/test/**", "apps/web/src/**", "packages/shared/src/**"];
 const testGlobs = ["**/*.test.ts", "**/*.test.tsx", "apps/api/test/**"];
 
 export default tseslint.config(
@@ -125,7 +125,6 @@ export default tseslint.config(
     files: testGlobs,
     plugins: { i18next },
     rules: {
-      "no-restricted-syntax": "off",
       "no-restricted-imports": "off",
       "i18next/no-literal-string": "off",
     },

@@ -10,10 +10,6 @@ export { Decimal };
 
 export type DecimalValue = Decimal;
 
-export function isDecimalString(value: unknown): value is string {
-  return typeof value === "string" && DECIMAL_PATTERN.test(value);
-}
-
 export const decimalString = z
   .string({ error: DECIMAL_STRING_ERROR })
   .regex(DECIMAL_PATTERN, DECIMAL_STRING_ERROR)

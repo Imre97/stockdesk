@@ -76,6 +76,40 @@ describe("loadConfig", () => {
     );
   });
 
+  it("defaults TRUST_PROXY_HOPS to 0", () => {
+    const config = loadConfig(baseEnv);
+
+    expect(config.trustProxyHops).toBe(0);
+    expect(typeof config.trustProxyHops).toBe("number");
+  });
+
+  it("parses a provided TRUST_PROXY_HOPS", () => {
+    expect(loadConfig({ ...baseEnv, TRUST_PROXY_HOPS: "1" }).trustProxyHops).toBe(1);
+    expect(loadConfig({ ...baseEnv, TRUST_PROXY_HOPS: "2" }).trustProxyHops).toBe(2);
+  });
+
+  it("rejects a negative or non-integer TRUST_PROXY_HOPS", () => {
+    expect(() => loadConfig({ ...baseEnv, TRUST_PROXY_HOPS: "-1" })).toThrowError(/TRUST_PROXY_HOPS/);
+    expect(() => loadConfig({ ...baseEnv, TRUST_PROXY_HOPS: "1.5" })).toThrowError(/TRUST_PROXY_HOPS/);
+    expect(() => loadConfig({ ...baseEnv, TRUST_PROXY_HOPS: "one" })).toThrowError(/TRUST_PROXY_HOPS/);
+  });
+
+  it("defaults REFRESH_TOKEN_PRUNE_INTERVAL_MINUTES to 60", () => {
+    expect(loadConfig(baseEnv).refreshTokenPruneIntervalMinutes).toBe(60);
+  });
+
+  it("parses and validates REFRESH_TOKEN_PRUNE_INTERVAL_MINUTES", () => {
+    expect(loadConfig({ ...baseEnv, REFRESH_TOKEN_PRUNE_INTERVAL_MINUTES: "5" }).refreshTokenPruneIntervalMinutes).toBe(
+      5,
+    );
+    expect(() => loadConfig({ ...baseEnv, REFRESH_TOKEN_PRUNE_INTERVAL_MINUTES: "0" })).toThrowError(
+      /REFRESH_TOKEN_PRUNE_INTERVAL_MINUTES/,
+    );
+    expect(() => loadConfig({ ...baseEnv, REFRESH_TOKEN_PRUNE_INTERVAL_MINUTES: "1.5" })).toThrowError(
+      /REFRESH_TOKEN_PRUNE_INTERVAL_MINUTES/,
+    );
+  });
+
   it("rejects a non-integer auth rate limit", () => {
     expect(() => loadConfig({ ...baseEnv, AUTH_RATE_LIMIT_MAX: "1.5" })).toThrowError(/AUTH_RATE_LIMIT_MAX/);
     expect(() => loadConfig({ ...baseEnv, AUTH_RATE_LIMIT_MAX: "ten" })).toThrowError(/AUTH_RATE_LIMIT_MAX/);

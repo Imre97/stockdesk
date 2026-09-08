@@ -29,6 +29,10 @@ services:
         sync: false
       - key: REFRESH_TOKEN_TTL_DAYS
         sync: false
+      - key: REFRESH_TOKEN_PRUNE_INTERVAL_MINUTES
+        sync: false
+      - key: TRUST_PROXY_HOPS
+        value: "1"
       - key: CORS_ORIGIN
         sync: false
       - key: WEB_DIST_DIR

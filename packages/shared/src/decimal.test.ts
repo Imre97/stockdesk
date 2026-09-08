@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { Decimal, decimalString, isDecimalString, toApiString } from "./decimal.js";
+import { Decimal, decimalString, toApiString } from "./decimal.js";
 
 const DECIMAL_ERROR = "Expected a decimal string";
 
@@ -74,24 +74,6 @@ describe("decimalString", () => {
 
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]?.message).toBe(DECIMAL_ERROR);
-  });
-});
-
-describe("isDecimalString", () => {
-  it.each(["0", "-0.5", "100000.00", "1.23456789"])("returns true for %s", (input) => {
-    expect(isDecimalString(input)).toBe(true);
-  });
-
-  it.each([["1e5"], [""], [" 1"], ["1."], [".5"], ["+1"], ["NaN"]])("returns false for %s", (input) => {
-    expect(isDecimalString(input)).toBe(false);
-  });
-
-  it.each([
-    ["null", null],
-    ["number", 1],
-    ["object", {}],
-  ])("returns false for a non-string value: %s", (_label, input) => {
-    expect(isDecimalString(input)).toBe(false);
   });
 });
 

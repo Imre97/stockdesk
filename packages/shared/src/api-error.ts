@@ -11,7 +11,7 @@ export const apiErrorSchema = z.object({
 
 export type ApiErrorEnvelope = z.infer<typeof apiErrorSchema>;
 
-export const API_ERROR_CODES = ["NOT_FOUND", "INTERNAL_ERROR"] as const;
+export const API_ERROR_CODES = ["NOT_FOUND", "PAYLOAD_TOO_LARGE", "INTERNAL_ERROR"] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 

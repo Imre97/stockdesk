@@ -4,7 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 
 import { getErrorCode } from "../../lib/http";
 import { toUserViewModel, type UserViewModel } from "./mappers";
-import { useAuthStore, type AuthStatus } from "./store";
+import { useAuthStore } from "./store";
 import {
   LOGIN_FIELD_ERROR_KEYS,
   REGISTER_FIELD_ERROR_KEYS,
@@ -14,36 +14,10 @@ import {
   type IssueLike,
 } from "./error-keys";
 
-export interface AuthSnapshot {
-  user: UserViewModel | null;
-  status: AuthStatus;
-  isAuthenticated: boolean;
-  login: (input: LoginRequest) => Promise<void>;
-  register: (input: RegisterRequest) => Promise<void>;
-  logout: () => Promise<void>;
-}
-
 export function useCurrentUser(): UserViewModel | null {
   const user = useAuthStore((state) => state.user);
 
   return useMemo(() => (user === null ? null : toUserViewModel(user)), [user]);
-}
-
-export function useAuth(): AuthSnapshot {
-  const user = useCurrentUser();
-  const status = useAuthStore((state) => state.status);
-  const login = useAuthStore((state) => state.login);
-  const register = useAuthStore((state) => state.register);
-  const logout = useAuthStore((state) => state.logout);
-
-  return { user, status, isAuthenticated: status === "authenticated", login, register, logout };
-}
-
-export function useRequireAuth(): { user: UserViewModel | null; status: AuthStatus } {
-  const user = useCurrentUser();
-  const status = useAuthStore((state) => state.status);
-
-  return { user, status };
 }
 
 export function useLogout(): () => Promise<void> {

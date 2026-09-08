@@ -13,7 +13,7 @@ import { createHealthRouter, type DatabaseCheck } from "./modules/health/router.
 import { mountStaticWeb } from "./static-web.js";
 
 const MILLISECONDS_PER_MINUTE = 60 * 1000;
-const TRUSTED_PROXY_HOPS = 1;
+const JSON_BODY_LIMIT = "16kb";
 
 const apiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -53,10 +53,10 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   const app = express();
 
   app.disable("x-powered-by");
-  app.set("trust proxy", TRUSTED_PROXY_HOPS);
+  app.set("trust proxy", config.trustProxyHops);
   app.use(helmet());
   app.use(cors({ origin: config.corsOrigin, credentials: true }));
-  app.use(express.json());
+  app.use(express.json({ limit: JSON_BODY_LIMIT }));
   app.use(cookieParser());
 
   const apiRouter = express.Router();

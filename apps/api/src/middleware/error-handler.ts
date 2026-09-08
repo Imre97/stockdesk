@@ -18,9 +18,22 @@ function envelope(code: ErrorCode, message: string, details?: unknown): ErrorEnv
   return { error: { code, message, details } };
 }
 
+function isPayloadTooLarge(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+
+  const candidate = error as { type?: unknown; name?: unknown };
+
+  return candidate.type === "entity.too.large" || candidate.name === "PayloadTooLargeError";
+}
+
 export const errorHandler: ErrorRequestHandler = (error, _request, response, _next) => {
   if (error instanceof AppError) {
     response.status(error.status).json(envelope(error.code, error.message, error.details));
+    return;
+  }
+
+  if (isPayloadTooLarge(error)) {
+    response.status(413).json(envelope("PAYLOAD_TOO_LARGE", "Request body is too large."));
     return;
   }
 

@@ -9,10 +9,12 @@ const environmentSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(1),
   JWT_ACCESS_TTL: z.string().min(1).default("15m"),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
+  REFRESH_TOKEN_PRUNE_INTERVAL_MINUTES: z.coerce.number().int().positive().default(60),
   CORS_ORIGIN: z.string().min(1).default("http://localhost:5173"),
   WEB_DIST_DIR: z.string().min(1).default("../web/dist"),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   AUTH_RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
+  TRUST_PROXY_HOPS: z.coerce.number().int().nonnegative().default(0),
 });
 
 export interface AppConfig {
@@ -24,10 +26,12 @@ export interface AppConfig {
   jwtAccessSecret: string;
   jwtAccessTtl: string;
   refreshTokenTtlDays: number;
+  refreshTokenPruneIntervalMinutes: number;
   corsOrigin: string;
   webDistDir: string;
   authRateLimitMax: number;
   authRateLimitWindowMinutes: number;
+  trustProxyHops: number;
   isProduction: boolean;
 }
 
@@ -53,10 +57,12 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     jwtAccessSecret: values.JWT_ACCESS_SECRET,
     jwtAccessTtl: values.JWT_ACCESS_TTL,
     refreshTokenTtlDays: values.REFRESH_TOKEN_TTL_DAYS,
+    refreshTokenPruneIntervalMinutes: values.REFRESH_TOKEN_PRUNE_INTERVAL_MINUTES,
     corsOrigin: values.CORS_ORIGIN,
     webDistDir: values.WEB_DIST_DIR,
     authRateLimitMax: values.AUTH_RATE_LIMIT_MAX,
     authRateLimitWindowMinutes: values.AUTH_RATE_LIMIT_WINDOW_MINUTES,
+    trustProxyHops: values.TRUST_PROXY_HOPS,
     isProduction: values.NODE_ENV === "production",
   };
 }
@@ -66,8 +72,4 @@ let cached: AppConfig | undefined;
 export function getConfig(): AppConfig {
   cached ??= loadConfig(process.env);
   return cached;
-}
-
-export function resetConfigCache(): void {
-  cached = undefined;
 }

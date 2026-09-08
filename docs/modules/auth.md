@@ -36,7 +36,7 @@ model RefreshToken {
 
 - Registration runs in one transaction: create `User`, create `Account` named `Main` with `cashBalance = 100000`, create a `CashTransaction` of type `DEPOSIT` for `100000` with note `initial funding`, create `UserSettings` with `defaultAccountId` pointing at the account. Models in `dashboard.md`.
 - `tokenHash` is the SHA-256 hex digest of the raw refresh token. Raw tokens are never stored.
-- Rows with `expiresAt` in the past are deleted at server boot and after every successful rotation.
+- Rows with `expiresAt` in the past are deleted at server boot and then every `REFRESH_TOKEN_PRUNE_INTERVAL_MINUTES` by a background job started from `runBootTasks()`. The rotation path never prunes.
 
 ## API
 
@@ -67,7 +67,7 @@ Balances are not part of the user shape; they come from `GET /api/v1/accounts` (
 
 `VALIDATION_ERROR` (422), `EMAIL_TAKEN` (409), `INVALID_CREDENTIALS` (401), `UNAUTHORIZED` (401), `REFRESH_REUSED` (401), `RATE_LIMITED` (429).
 
-The app shell also emits two API-wide codes that no auth handler raises: `NOT_FOUND` (404) for an unknown `/api/v1` path and `INTERNAL_ERROR` (500) for an unhandled error. They live in `API_ERROR_CODES` in `packages/shared/src/api-error.ts`, not in `AUTH_ERROR_CODES`.
+The app shell also emits API-wide codes that no auth handler raises: `NOT_FOUND` (404) for an unknown `/api/v1` path and `INTERNAL_ERROR` (500) for an unhandled error. They live in `API_ERROR_CODES` in `packages/shared/src/api-error.ts`, not in `AUTH_ERROR_CODES`. A third app-wide code, `PAYLOAD_TOO_LARGE` (413), is raised by the JSON body parser when a request body exceeds the 16 kb limit.
 
 ## Tokens
 
@@ -103,7 +103,7 @@ Access token expiry does not close an already authenticated socket. Clients reco
 ## Server components
 
 - `requireAuth` middleware: verifies the Bearer JWT, sets `req.user = { id }`, otherwise `401 UNAUTHORIZED`.
-- Rate limiting on `/login` and `/register`: 10 requests per 15 minutes per IP via `express-rate-limit`, error code `RATE_LIMITED`. The default is configurable through `AUTH_RATE_LIMIT_MAX` and `AUTH_RATE_LIMIT_WINDOW_MINUTES`.
+- Rate limiting on `/login` and `/register`: 10 requests per 15 minutes per IP via `express-rate-limit`, error code `RATE_LIMITED`. The default is configurable through `AUTH_RATE_LIMIT_MAX` and `AUTH_RATE_LIMIT_WINDOW_MINUTES`. The client address is taken from `TRUST_PROXY_HOPS` trusted proxy hops (`app.set("trust proxy", hops)`, never `true`); with the default 0 the socket address is used and `X-Forwarded-For` is ignored, and Render sets it to 1.
 - `helmet`, `cors` with origin from `CORS_ORIGIN`, `cookie-parser`.
 - Module files: `apps/api/src/modules/auth/{router,service,repository}.ts`, `apps/api/src/middleware/require-auth.ts`, `apps/api/src/ws/auth-handshake.ts`.
 
@@ -130,7 +130,7 @@ apps/web/src/routes/
 
 - `features/auth/store.ts` (Zustand): state `{ user, accessToken, status }` where `status` is `'idle' | 'loading' | 'authenticated' | 'anonymous'`; actions `login()`, `register()`, `logout()`, `refresh()`, `setSession()`, `clearSession()`.
 - `features/auth/api.ts`: calls to `/api/v1/auth/*`, responses parsed with shared zod schemas.
-- `features/auth/hooks.ts`: `useAuth()`, `useRequireAuth()`.
+- `features/auth/hooks.ts`: `useCurrentUser()`, `useLogout()`, `useLoginForm()`, `useRegisterForm()`.
 - `features/auth/mappers.ts`: user DTO to view model.
 - `features/auth/components/LoginForm.tsx`, `RegisterForm.tsx`: render and form hook only; validation via shared zod schemas; server error envelope messages displayed.
 - `lib/http.ts`: fetch wrapper. Attaches Bearer from the store. On `401` performs a single in-flight `refresh()`, queues concurrent requests, retries them once, and clears the session if refresh fails.
@@ -156,10 +156,12 @@ DATABASE_URL_TEST=postgresql://stockdesk:stockdesk@localhost:5432/stockdesk_test
 JWT_ACCESS_SECRET=
 JWT_ACCESS_TTL=15m
 REFRESH_TOKEN_TTL_DAYS=7
+REFRESH_TOKEN_PRUNE_INTERVAL_MINUTES=60
 CORS_ORIGIN=http://localhost:5173
 WEB_DIST_DIR=../web/dist
 AUTH_RATE_LIMIT_MAX=10
 AUTH_RATE_LIMIT_WINDOW_MINUTES=15
+TRUST_PROXY_HOPS=0
 ```
 
 This module also adds `GET /api/v1/health` (public): `200 { "status": "ok", "database": "ok" }`, `503 { "status": "degraded", "database": "unreachable" }` when the database query fails. Later modules extend the payload.

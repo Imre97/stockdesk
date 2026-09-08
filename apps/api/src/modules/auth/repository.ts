@@ -96,11 +96,11 @@ export async function rotateRefreshToken(
   nextHash: string,
   expiresAt: Date,
 ): Promise<RotationResult> {
-  const result = await prisma.$transaction(async (tx) => {
+  return await prisma.$transaction(async (tx): Promise<RotationResult> => {
     const presented = await tx.refreshToken.findUnique({ where: { tokenHash: presentedHash } });
     const now = new Date();
 
-    if (presented === null || presented.expiresAt < now) return { status: "invalid" } as RotationResult;
+    if (presented === null || presented.expiresAt < now) return { status: "invalid" };
 
     const claimed = await tx.refreshToken.updateMany({
       where: { id: presented.id, revokedAt: null },
@@ -112,15 +112,11 @@ export async function rotateRefreshToken(
         where: { userId: presented.userId, revokedAt: null },
         data: { revokedAt: now },
       });
-      return { status: "reused" } as RotationResult;
+      return { status: "reused" };
     }
 
     await tx.refreshToken.create({ data: { userId: presented.userId, tokenHash: nextHash, expiresAt } });
 
-    return { status: "rotated", userId: presented.userId } as RotationResult;
+    return { status: "rotated", userId: presented.userId };
   });
-
-  if (result.status === "rotated") await deleteExpiredRefreshTokens();
-
-  return result;
 }
