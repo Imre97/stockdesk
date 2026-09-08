@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 import dotenv from "dotenv";
+import { resolveDatabaseUrl } from "./prepare-database";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
@@ -10,7 +11,7 @@ dotenv.config({ path: path.join(repoRoot, ".env") });
 
 const webBaseUrl = "http://localhost:5173";
 const apiBaseUrl = "http://localhost:3000";
-const e2eDatabaseUrl = process.env.DATABASE_URL_E2E ?? "";
+const e2eDatabaseUrl = resolveDatabaseUrl();
 const isCi = process.env.CI !== undefined && process.env.CI !== "";
 
 export default defineConfig({
@@ -31,7 +32,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      command: "npm run dev --workspace @stockdesk/api",
+      command: "npx tsx apps/e2e/prepare-database.ts && npm run dev --workspace @stockdesk/api",
       cwd: repoRoot,
       url: `${apiBaseUrl}/api/v1/health`,
       reuseExistingServer: false,

@@ -30,7 +30,11 @@ export function SymbolHeader({ view }: SymbolHeaderProps) {
         <span className="text-xs text-muted-foreground">{view.exchange}</span>
       </div>
       <div className="flex flex-wrap items-baseline gap-3">
-        <span aria-label={t("header.lastPrice")} className="text-3xl font-semibold tabular-nums">
+        <span
+          aria-label={t("header.lastPrice")}
+          className="text-3xl font-semibold tabular-nums"
+          data-testid="symbol-price"
+        >
           {view.priceText ?? t("stats.missing")}
         </span>
         {view.changeText !== null && (

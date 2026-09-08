@@ -76,7 +76,7 @@ export function PriceChart({ symbol, interval, chartType }: PriceChartProps) {
   }, [bars, quote]);
 
   return (
-    <div className="relative w-full" style={{ height: CHART_HEIGHT }}>
+    <div className="relative w-full" data-testid="price-chart" style={{ height: CHART_HEIGHT }}>
       <div className="absolute inset-0" ref={containerRef} />
       {isLoading && bars.length === 0 && (
         <p className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
