@@ -2,6 +2,7 @@ import type { LoginRequest, RegisterRequest, User } from "@stockdesk/shared";
 import { create } from "zustand";
 
 import { configureHttp } from "../../lib/http";
+import { configureWsSession } from "../../lib/ws-session";
 import * as api from "./api";
 import { resetSessionState } from "./session-reset";
 
@@ -85,6 +86,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 }));
+
+configureWsSession({
+  getAccessToken: () => useAuthStore.getState().accessToken,
+});
 
 configureHttp({
   getAccessToken: () => useAuthStore.getState().accessToken,

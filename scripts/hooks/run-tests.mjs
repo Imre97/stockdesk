@@ -1,8 +1,10 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+import { isLockHeld, readLock } from "./test-lock.mjs";
 
 const WORKSPACE_ROOTS = ["apps", "packages"];
+const LOCKED_WORKSPACE = "@stockdesk/api";
 
 function readStdinJson() {
   try {
@@ -57,8 +59,23 @@ const targets =
 
 if (targets.length === 0) process.exit(0);
 
+function skipReason(ws) {
+  if (ws.name !== LOCKED_WORKSPACE) return null;
+
+  const pid = readLock(root);
+  if (!isLockHeld(root)) return null;
+
+  return `Skipped ${ws.name} tests: another vitest run holds .vitest-api.lock (pid ${pid}).\n`;
+}
+
 const failures = [];
 for (const ws of targets) {
+  const skipped = skipReason(ws);
+  if (skipped !== null) {
+    process.stderr.write(skipped);
+    continue;
+  }
+
   const result = spawnSync("npm", ["test", "--workspace", ws.name, "--", "--run"], {
     cwd: root,
     encoding: "utf8",

@@ -65,4 +65,21 @@ describe("settings store", () => {
     useSettingsStore.getState().setDefaultAccountId("account-3");
     expect(readBlob()).toEqual({ language: "hu", theme: "dark", defaultAccountId: "account-3" });
   });
+
+  it("clears only the default account in the cache on reset", () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ language: "hu", theme: "dark", defaultAccountId: "account-1" }),
+    );
+
+    useSettingsStore.getState().reset();
+
+    expect(readBlob()).toEqual({ language: "hu", theme: "dark", defaultAccountId: null });
+  });
+
+  it("writes no cache on reset when nothing was cached", () => {
+    useSettingsStore.getState().reset();
+
+    expect(window.localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
+  });
 });

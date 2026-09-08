@@ -1,13 +1,10 @@
 import { useCallback, useEffect } from "react";
 import { languageSchema, themeSchema, type Language, type Theme } from "@stockdesk/shared";
 
-import { createWsClient } from "../../lib/ws";
-import { useAuthStore } from "../auth/store";
+import { wsSession } from "../../lib/ws-session";
 import { useCurrentUser, useLogout } from "../auth/hooks";
 import { useAccountsStore } from "../accounts/store";
 import { useLanguage, usePersistSetting, useTheme } from "../settings/hooks";
-
-const WS_PATH = "/ws";
 
 export interface ProfileMenuState {
   displayName: string;
@@ -65,18 +62,14 @@ export function useAccountSummaryStream(): void {
   const applyAccountSummary = useAccountsStore((state) => state.applyAccountSummary);
 
   useEffect(() => {
-    const client = createWsClient({
-      url: WS_PATH,
-      getAccessToken: () => useAuthStore.getState().accessToken,
-      onMessage: (message) => {
-        if (message.type !== "account_summary") return;
+    const unsubscribe = wsSession.addMessageListener((message) => {
+      if (message.type !== "account_summary") return;
 
-        applyAccountSummary(message);
-      },
+      applyAccountSummary(message);
     });
 
-    client.connect();
+    wsSession.connect();
 
-    return () => client.disconnect();
+    return unsubscribe;
   }, [applyAccountSummary]);
 }

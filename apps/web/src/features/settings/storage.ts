@@ -59,3 +59,11 @@ export function writeCachedSettings(value: CachedSettings): void {
     return;
   }
 }
+
+export function patchCachedSettings(patch: Partial<CachedSettings>): void {
+  const cached = readCachedSettings();
+
+  if (cached === null) return;
+
+  writeCachedSettings({ ...cached, ...patch });
+}

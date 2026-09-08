@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,6 +15,7 @@ const api = vi.hoisted(() => ({
 vi.mock("./api", () => api);
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigate }));
 
+import { queryClient } from "../../lib/query-client";
 import { useAccountsStore } from "../accounts/store";
 import { useFundingStore } from "../funding/store";
 import { useSettingsStore } from "../settings/store";
@@ -41,8 +42,6 @@ const ACCOUNT_DTO = {
   createdAt: "2026-09-08T10:00:00.000Z",
 };
 
-let queryClient: QueryClient;
-
 function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
@@ -50,7 +49,7 @@ function wrapper({ children }: { children: ReactNode }) {
 beforeEach(() => {
   vi.clearAllMocks();
   window.localStorage.clear();
-  queryClient = new QueryClient();
+  queryClient.clear();
   api.logout.mockResolvedValue(undefined);
   useAuthStore.setState({ user: USER, accessToken: "token-1", status: "authenticated" });
   useAccountsStore.setState({ accounts: [], activeAccountId: null, status: "idle" });
@@ -76,6 +75,17 @@ describe("useLogout", () => {
     expect(useSettingsStore.getState().defaultAccountId).toBeNull();
     expect(queryClient.getQueryData(["positions", "acc-1"])).toBeUndefined();
     expect(navigate).toHaveBeenCalledWith({ to: "/login" });
+  });
+
+  it("resets the client state exactly once", async () => {
+    const resetAccounts = vi.spyOn(useAccountsStore.getState(), "reset");
+
+    const { result } = renderHook(() => useLogout(), { wrapper });
+
+    await result.current();
+
+    expect(resetAccounts).toHaveBeenCalledTimes(1);
+    resetAccounts.mockRestore();
   });
 });
 

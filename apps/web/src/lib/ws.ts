@@ -1,9 +1,10 @@
-import { serverMessageSchema, type ServerMessage } from "@stockdesk/shared";
+import { serverMessageSchema, type ClientMessage, type ServerMessage } from "@stockdesk/shared";
 
 export const WS_BACKOFF_START_MS = 1000;
 export const WS_BACKOFF_MAX_MS = 30_000;
 
 const BACKOFF_FACTOR = 2;
+const OPEN_STATE = 1;
 const CLOSED_STATE = 3;
 
 export interface WsTimers {
@@ -34,6 +35,7 @@ export interface WsClientOptions {
 export interface WsClient {
   connect: () => void;
   disconnect: () => void;
+  send: (message: ClientMessage) => boolean;
 }
 
 export function resolveWsUrl(url: string): string {
@@ -81,6 +83,7 @@ export function createWsClient(options: WsClientOptions): WsClient {
   let reconnectTimer: number | null = null;
   let attempt = 0;
   let stopped = true;
+  let authenticated = false;
 
   function clearReconnect(): void {
     if (reconnectTimer === null) return;
@@ -123,7 +126,10 @@ export function createWsClient(options: WsClientOptions): WsClient {
 
     if (message === null) return;
 
-    if (message.type === "auth_ok") attempt = 0;
+    if (message.type === "auth_ok") {
+      attempt = 0;
+      authenticated = true;
+    }
 
     options.onMessage(message);
   }
@@ -132,12 +138,14 @@ export function createWsClient(options: WsClientOptions): WsClient {
     const Impl = options.WebSocketImpl ?? (globalThis.WebSocket as unknown as WsSocketFactory);
     const current = new Impl(target);
     socket = current;
+    authenticated = false;
 
     current.onopen = () => handleOpen(current);
     current.onmessage = (event) => handleMessage(event.data);
     current.onerror = () => undefined;
     current.onclose = () => {
       detach(current);
+      authenticated = false;
       if (socket === current) socket = null;
       scheduleReconnect();
     };
@@ -154,6 +162,7 @@ export function createWsClient(options: WsClientOptions): WsClient {
 
     disconnect: () => {
       stopped = true;
+      authenticated = false;
       clearReconnect();
 
       const current = socket;
@@ -163,6 +172,16 @@ export function createWsClient(options: WsClientOptions): WsClient {
 
       detach(current);
       if (current.readyState !== CLOSED_STATE) current.close();
+    },
+
+    send: (message) => {
+      const current = socket;
+
+      if (current === null || !authenticated || current.readyState !== OPEN_STATE) return false;
+
+      current.send(JSON.stringify(message));
+
+      return true;
     },
   };
 }

@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
+import { releaseLock, writeLock } from "../../../scripts/hooks/test-lock.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
@@ -22,7 +23,21 @@ function prismaEntryPoint(): string {
   return path.join(path.dirname(manifestPath), entry);
 }
 
-export default function setup(): void {
+function migrateTestDatabase(testUrl: string): void {
+  const result = spawnSync(process.execPath, [prismaEntryPoint(), "migrate", "deploy", "--schema", schemaPath], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: { ...process.env, DATABASE_URL: testUrl, DIRECT_URL: testUrl },
+  });
+
+  if (result.status !== 0) {
+    throw new Error(
+      `prisma migrate deploy failed for the test database.\n${result.stdout ?? ""}${result.stderr ?? ""}`,
+    );
+  }
+}
+
+export default function setup(): () => void {
   dotenv.config({ path: path.join(repoRoot, ".env") });
 
   const testUrl = process.env.DATABASE_URL_TEST;
@@ -40,22 +55,25 @@ export default function setup(): void {
     );
   }
 
+  writeLock(repoRoot, process.pid);
+
+  const teardown = (): void => {
+    releaseLock(repoRoot);
+  };
+
   if (process.env.SKIP_DB_SETUP === "1") {
     console.warn(
       "SKIP_DB_SETUP=1: skipping prisma migrate deploy. Database-backed tests will fail until the database is reachable.",
     );
-    return;
+    return teardown;
   }
 
-  const result = spawnSync(process.execPath, [prismaEntryPoint(), "migrate", "deploy", "--schema", schemaPath], {
-    cwd: repoRoot,
-    encoding: "utf8",
-    env: { ...process.env, DATABASE_URL: testUrl, DIRECT_URL: testUrl },
-  });
-
-  if (result.status !== 0) {
-    throw new Error(
-      `prisma migrate deploy failed for the test database.\n${result.stdout ?? ""}${result.stderr ?? ""}`,
-    );
+  try {
+    migrateTestDatabase(testUrl);
+  } catch (error) {
+    teardown();
+    throw error;
   }
+
+  return teardown;
 }

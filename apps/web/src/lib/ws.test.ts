@@ -245,4 +245,59 @@ describe("createWsClient", () => {
     expect(pending).toEqual([]);
     expect(FakeSocket.instances).toHaveLength(1);
   });
+
+  it("refuses to send a client message before the handshake completes", () => {
+    const client = createWsClient({
+      url: "/ws",
+      getAccessToken: () => "token-1",
+      onMessage: vi.fn(),
+      WebSocketImpl: FakeSocket,
+    });
+
+    client.connect();
+    last().open();
+
+    expect(client.send({ type: "auth", token: "extra" })).toBe(false);
+    expect(last().sent).toEqual([JSON.stringify({ type: "auth", token: "token-1" })]);
+    client.disconnect();
+  });
+
+  it("sends a client message once the handshake succeeded", () => {
+    const client = createWsClient({
+      url: "/ws",
+      getAccessToken: () => "token-1",
+      onMessage: vi.fn(),
+      WebSocketImpl: FakeSocket,
+    });
+
+    client.connect();
+    last().open();
+    last().emit({ type: "auth_ok", userId: "user-1" });
+
+    expect(client.send({ type: "auth", token: "extra" })).toBe(true);
+    expect(last().sent).toEqual([
+      JSON.stringify({ type: "auth", token: "token-1" }),
+      JSON.stringify({ type: "auth", token: "extra" }),
+    ]);
+    client.disconnect();
+  });
+
+  it("refuses to send after the socket dropped", () => {
+    const { timers } = fakeTimers();
+    const client = createWsClient({
+      url: "/ws",
+      getAccessToken: () => "token-1",
+      onMessage: vi.fn(),
+      WebSocketImpl: FakeSocket,
+      timers,
+    });
+
+    client.connect();
+    last().open();
+    last().emit({ type: "auth_ok", userId: "user-1" });
+    last().dropped();
+
+    expect(client.send({ type: "auth", token: "extra" })).toBe(false);
+    client.disconnect();
+  });
 });

@@ -2,7 +2,7 @@ import type { Language, Settings, Theme } from "@stockdesk/shared";
 import { create } from "zustand";
 
 import { resolveInitialLanguage } from "./language";
-import { readCachedSettings, writeCachedSettings } from "./storage";
+import { patchCachedSettings, readCachedSettings, writeCachedSettings } from "./storage";
 
 export type SettingsStatus = "idle" | "loaded";
 
@@ -70,6 +70,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     setTheme: (theme) => change({ theme }),
     setDefaultAccountId: (accountId) => change({ defaultAccountId: accountId }),
 
-    reset: () => change({ defaultAccountId: null, status: "idle" }),
+    reset: () => {
+      set({ defaultAccountId: null, status: "idle" });
+      patchCachedSettings({ defaultAccountId: null });
+    },
   };
 });

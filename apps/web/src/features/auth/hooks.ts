@@ -1,11 +1,9 @@
 import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { loginSchema, registerSchema, type LoginRequest, type RegisterRequest } from "@stockdesk/shared";
-import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
 import { getErrorCode } from "../../lib/http";
 import { toUserViewModel, type UserViewModel } from "./mappers";
-import { resetClientState } from "./session-reset";
 import { useAuthStore } from "./store";
 import {
   LOGIN_FIELD_ERROR_KEYS,
@@ -25,13 +23,11 @@ export function useCurrentUser(): UserViewModel | null {
 export function useLogout(): () => Promise<void> {
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   return useCallback(async () => {
     await logout();
-    resetClientState({ queryClient });
     await navigate({ to: "/login" });
-  }, [logout, navigate, queryClient]);
+  }, [logout, navigate]);
 }
 
 export interface AuthFormState<TValues> {
