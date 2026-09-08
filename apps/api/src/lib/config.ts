@@ -15,6 +15,10 @@ const environmentSchema = z.object({
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   AUTH_RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
   TRUST_PROXY_HOPS: z.coerce.number().int().nonnegative().optional(),
+  SNAPSHOT_INTERVAL_SECONDS: z.coerce.number().int().positive().default(60),
+  SNAPSHOT_FINE_RETENTION_DAYS: z.coerce.number().int().positive().default(7),
+  SNAPSHOT_COARSE_RETENTION_DAYS: z.coerce.number().int().positive().default(400),
+  SNAPSHOT_THINNING_INTERVAL_HOURS: z.coerce.number().int().positive().default(24),
 });
 
 export interface AppConfig {
@@ -32,6 +36,10 @@ export interface AppConfig {
   authRateLimitMax: number;
   authRateLimitWindowMinutes: number;
   trustProxyHops: number;
+  snapshotIntervalSeconds: number;
+  snapshotFineRetentionDays: number;
+  snapshotCoarseRetentionDays: number;
+  snapshotThinningIntervalHours: number;
   isProduction: boolean;
 }
 
@@ -64,6 +72,10 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     authRateLimitMax: values.AUTH_RATE_LIMIT_MAX,
     authRateLimitWindowMinutes: values.AUTH_RATE_LIMIT_WINDOW_MINUTES,
     trustProxyHops: values.TRUST_PROXY_HOPS ?? (isProduction ? 1 : 0),
+    snapshotIntervalSeconds: values.SNAPSHOT_INTERVAL_SECONDS,
+    snapshotFineRetentionDays: values.SNAPSHOT_FINE_RETENTION_DAYS,
+    snapshotCoarseRetentionDays: values.SNAPSHOT_COARSE_RETENTION_DAYS,
+    snapshotThinningIntervalHours: values.SNAPSHOT_THINNING_INTERVAL_HOURS,
     isProduction,
   };
 }

@@ -120,6 +120,48 @@ describe("loadConfig", () => {
     );
   });
 
+  it("defaults the snapshot job settings", () => {
+    const config = loadConfig(baseEnv);
+
+    expect(config.snapshotIntervalSeconds).toBe(60);
+    expect(config.snapshotFineRetentionDays).toBe(7);
+    expect(config.snapshotCoarseRetentionDays).toBe(400);
+    expect(config.snapshotThinningIntervalHours).toBe(24);
+  });
+
+  it("parses provided snapshot job settings", () => {
+    const config = loadConfig({
+      ...baseEnv,
+      SNAPSHOT_INTERVAL_SECONDS: "15",
+      SNAPSHOT_FINE_RETENTION_DAYS: "3",
+      SNAPSHOT_COARSE_RETENTION_DAYS: "90",
+      SNAPSHOT_THINNING_INTERVAL_HOURS: "6",
+    });
+
+    expect(config.snapshotIntervalSeconds).toBe(15);
+    expect(config.snapshotFineRetentionDays).toBe(3);
+    expect(config.snapshotCoarseRetentionDays).toBe(90);
+    expect(config.snapshotThinningIntervalHours).toBe(6);
+  });
+
+  it("rejects non-positive or non-integer snapshot job settings", () => {
+    expect(() => loadConfig({ ...baseEnv, SNAPSHOT_INTERVAL_SECONDS: "0" })).toThrowError(
+      /SNAPSHOT_INTERVAL_SECONDS/,
+    );
+    expect(() => loadConfig({ ...baseEnv, SNAPSHOT_INTERVAL_SECONDS: "1.5" })).toThrowError(
+      /SNAPSHOT_INTERVAL_SECONDS/,
+    );
+    expect(() => loadConfig({ ...baseEnv, SNAPSHOT_FINE_RETENTION_DAYS: "-1" })).toThrowError(
+      /SNAPSHOT_FINE_RETENTION_DAYS/,
+    );
+    expect(() => loadConfig({ ...baseEnv, SNAPSHOT_COARSE_RETENTION_DAYS: "0" })).toThrowError(
+      /SNAPSHOT_COARSE_RETENTION_DAYS/,
+    );
+    expect(() => loadConfig({ ...baseEnv, SNAPSHOT_THINNING_INTERVAL_HOURS: "many" })).toThrowError(
+      /SNAPSHOT_THINNING_INTERVAL_HOURS/,
+    );
+  });
+
   it("rejects a non-integer auth rate limit", () => {
     expect(() => loadConfig({ ...baseEnv, AUTH_RATE_LIMIT_MAX: "1.5" })).toThrowError(/AUTH_RATE_LIMIT_MAX/);
     expect(() => loadConfig({ ...baseEnv, AUTH_RATE_LIMIT_MAX: "ten" })).toThrowError(/AUTH_RATE_LIMIT_MAX/);

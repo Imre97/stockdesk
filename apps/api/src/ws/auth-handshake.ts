@@ -2,6 +2,7 @@ import type { Server } from "node:http";
 import { WebSocketServer, type RawData, type WebSocket } from "ws";
 import type { AppConfig } from "../lib/config.js";
 import { verifyAccessToken } from "../modules/auth/tokens.js";
+import { createUserRegistry, type UserRegistry } from "./user-registry.js";
 
 const DEFAULT_AUTH_TIMEOUT_MS = 5000;
 const UNAUTHORIZED_CODE = 4001;
@@ -11,6 +12,7 @@ const authenticatedSockets = new WeakMap<WebSocket, string>();
 
 export interface WebSocketServerOptions {
   authTimeoutMs?: number;
+  registry?: UserRegistry;
 }
 
 export function wsAuthenticatedUserId(socket: WebSocket): string | undefined {
@@ -41,6 +43,7 @@ export function attachWebSocketServer(
 ): WebSocketServer {
   const wss = new WebSocketServer({ server, path: "/ws" });
   const authTimeoutMs = options.authTimeoutMs ?? DEFAULT_AUTH_TIMEOUT_MS;
+  const registry = options.registry ?? createUserRegistry();
 
   wss.on("connection", (socket) => {
     const timer = setTimeout(() => {
@@ -68,12 +71,15 @@ export function attachWebSocketServer(
       }
 
       authenticatedSockets.set(socket, userId);
+      registry.add(userId, socket);
       socket.send(JSON.stringify({ type: "auth_ok", userId }));
     };
 
     socket.on("message", onFirstMessage);
     socket.on("close", () => {
       clearTimeout(timer);
+      const userId = authenticatedSockets.get(socket);
+      if (userId !== undefined) registry.remove(userId, socket);
       authenticatedSockets.delete(socket);
     });
   });

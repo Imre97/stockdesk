@@ -42,14 +42,7 @@ export const meResponseSchema = z.object({
   user: userSchema,
 });
 
-export const AUTH_ERROR_CODES = [
-  "VALIDATION_ERROR",
-  "EMAIL_TAKEN",
-  "INVALID_CREDENTIALS",
-  "UNAUTHORIZED",
-  "REFRESH_REUSED",
-  "RATE_LIMITED",
-] as const;
+export const AUTH_ERROR_CODES = ["EMAIL_TAKEN", "INVALID_CREDENTIALS", "REFRESH_REUSED", "RATE_LIMITED"] as const;
 
 export type AuthErrorCode = (typeof AUTH_ERROR_CODES)[number];
 

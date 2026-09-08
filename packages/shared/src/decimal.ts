@@ -10,10 +10,11 @@ export { Decimal };
 
 export type DecimalValue = Decimal;
 
-export const decimalString = z
+export const decimalStringValue = z
   .string({ error: DECIMAL_STRING_ERROR })
-  .regex(DECIMAL_PATTERN, DECIMAL_STRING_ERROR)
-  .transform((value) => new Decimal(value));
+  .regex(DECIMAL_PATTERN, DECIMAL_STRING_ERROR);
+
+export const decimalString = decimalStringValue.transform((value) => new Decimal(value));
 
 export function toApiString(value: DecimalValue | string, decimalPlaces: number): string {
   // eslint-disable-next-line no-restricted-syntax

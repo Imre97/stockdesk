@@ -3,12 +3,17 @@ import { Router, type RequestHandler } from "express";
 import type { AppConfig } from "../../lib/config.js";
 import { AppError } from "../../lib/errors.js";
 import { requireAuth } from "../../middleware/require-auth.js";
+import type { AccountsDependencies } from "../accounts/snapshot-writer.js";
 import { clearRefreshCookie, readRefreshCookie, setRefreshCookie } from "./cookies.js";
 import { createAuthService } from "./service.js";
 
-export function createAuthRouter(config: AppConfig, rateLimiter?: RequestHandler): Router {
+export function createAuthRouter(
+  config: AppConfig,
+  rateLimiter?: RequestHandler,
+  dependencies: AccountsDependencies = {},
+): Router {
   const router = Router();
-  const service = createAuthService(config);
+  const service = createAuthService(config, dependencies);
   const throttled: RequestHandler[] = rateLimiter === undefined ? [] : [rateLimiter];
 
   router.post("/register", ...throttled, async (request, response) => {

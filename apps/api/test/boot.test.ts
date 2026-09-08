@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runBootTasks } from "../src/boot.js";
+import type { SnapshotJob } from "../src/modules/accounts/snapshot-job.js";
 import { loadConfig } from "../src/lib/config.js";
 import { prisma } from "../src/lib/prisma.js";
 import { truncateAll } from "./db.js";
@@ -8,6 +9,32 @@ import { uniqueEmail } from "./helpers.js";
 const MILLISECONDS_PER_MINUTE = 60 * 1000;
 
 const config = loadConfig(process.env);
+
+interface JobCalls {
+  ticks: number;
+  thinnings: number;
+  starts: number;
+  stops: number;
+}
+
+function stubSnapshotJob(calls: JobCalls): SnapshotJob {
+  return {
+    runSnapshotTick: () => {
+      calls.ticks += 1;
+      return Promise.resolve();
+    },
+    runThinning: () => {
+      calls.thinnings += 1;
+      return Promise.resolve();
+    },
+    start: () => {
+      calls.starts += 1;
+    },
+    stop: () => {
+      calls.stops += 1;
+    },
+  };
+}
 
 async function createUserId(): Promise<string> {
   const user = await prisma.user.create({
@@ -58,7 +85,10 @@ describe("runBootTasks", () => {
     let pruneCalls = 0;
     const intervalConfig = { ...config, refreshTokenPruneIntervalMinutes: 30 };
 
+    const calls: JobCalls = { ticks: 0, thinnings: 0, starts: 0, stops: 0 };
+
     const tasks = await runBootTasks(intervalConfig, {
+      snapshotJob: stubSnapshotJob(calls),
       pruneExpiredRefreshTokens: () => {
         pruneCalls += 1;
         return Promise.resolve(0);
@@ -79,10 +109,25 @@ describe("runBootTasks", () => {
     expect(pruneCalls).toBe(3);
   });
 
+  it("takes one snapshot, thins once and starts the snapshot job at boot", async () => {
+    const calls: JobCalls = { ticks: 0, thinnings: 0, starts: 0, stops: 0 };
+
+    const tasks = await runBootTasks(config, {
+      snapshotJob: stubSnapshotJob(calls),
+      pruneExpiredRefreshTokens: () => Promise.resolve(0),
+    });
+
+    expect(calls).toEqual({ ticks: 1, thinnings: 1, starts: 1, stops: 0 });
+
+    tasks.stop();
+    expect(calls.stops).toBe(1);
+  });
+
   it("reports a failing prune without throwing", async () => {
     const reported: string[] = [];
 
     const tasks = await runBootTasks(config, {
+      snapshotJob: stubSnapshotJob({ ticks: 0, thinnings: 0, starts: 0, stops: 0 }),
       pruneExpiredRefreshTokens: () => Promise.reject(new Error("database unreachable")),
       reportError: (message) => reported.push(message),
     });

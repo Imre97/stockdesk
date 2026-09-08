@@ -254,13 +254,10 @@ describe("auth responses", () => {
 
 describe("AUTH_ERROR_CODES", () => {
   it("lists exactly the codes from the module spec", () => {
-    expect(AUTH_ERROR_CODES).toEqual([
-      "VALIDATION_ERROR",
-      "EMAIL_TAKEN",
-      "INVALID_CREDENTIALS",
-      "UNAUTHORIZED",
-      "REFRESH_REUSED",
-      "RATE_LIMITED",
-    ]);
+    expect(AUTH_ERROR_CODES).toEqual(["EMAIL_TAKEN", "INVALID_CREDENTIALS", "REFRESH_REUSED", "RATE_LIMITED"]);
+  });
+
+  it.each([["VALIDATION_ERROR"], ["UNAUTHORIZED"]])("does not carry the transport code %s", (code) => {
+    expect(AUTH_ERROR_CODES).not.toContain(code);
   });
 });

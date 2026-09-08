@@ -67,7 +67,7 @@ Balances are not part of the user shape; they come from `GET /api/v1/accounts` (
 
 `VALIDATION_ERROR` (422), `EMAIL_TAKEN` (409), `INVALID_CREDENTIALS` (401), `UNAUTHORIZED` (401), `REFRESH_REUSED` (401), `RATE_LIMITED` (429).
 
-The app shell also emits API-wide codes that no auth handler raises: `NOT_FOUND` (404) for an unknown `/api/v1` path and `INTERNAL_ERROR` (500) for an unhandled error. They live in `API_ERROR_CODES` in `packages/shared/src/api-error.ts`, not in `AUTH_ERROR_CODES`. A third app-wide code, `PAYLOAD_TOO_LARGE` (413), is raised by the JSON body parser when a request body exceeds the 16 kb limit.
+`EMAIL_TAKEN`, `INVALID_CREDENTIALS`, `REFRESH_REUSED` and `RATE_LIMITED` are auth-specific and live in `AUTH_ERROR_CODES` in `packages/shared/src/auth.ts`. `VALIDATION_ERROR` (422) and `UNAUTHORIZED` (401) are raised by every module, so from Module 2 on they live in `API_ERROR_CODES` in `packages/shared/src/api-error.ts`, together with the app-wide codes that no auth handler raises: `NOT_FOUND` (404) for an unknown `/api/v1` path, `PAYLOAD_TOO_LARGE` (413) from the JSON body parser when a request body exceeds the 16 kb limit, and `INTERNAL_ERROR` (500) for an unhandled error. The move changes where the two codes are declared, not which code or status any auth endpoint emits. The combined `ErrorCode` union is auth codes | account codes (Module 2) | app-wide codes.
 
 ## Tokens
 

@@ -27,6 +27,7 @@ export default defineConfig({
     env: {
       DATABASE_URL: testDatabaseUrl,
       DIRECT_URL: testDatabaseUrl,
+      TZ: "UTC",
     },
   },
 });

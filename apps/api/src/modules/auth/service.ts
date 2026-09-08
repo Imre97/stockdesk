@@ -2,6 +2,7 @@ import type { LoginInput, RegisterInput, User } from "@stockdesk/shared";
 import bcrypt from "bcrypt";
 import type { AppConfig } from "../../lib/config.js";
 import { AppError } from "../../lib/errors.js";
+import { afterCashChange, type AccountsDependencies } from "../accounts/snapshot-writer.js";
 import * as repository from "./repository.js";
 import type { UserRecord } from "./repository.js";
 import { createRefreshToken, hashRefreshToken, refreshTokenExpiry, signAccessToken } from "./tokens.js";
@@ -56,7 +57,10 @@ function unauthorized(message: string): AppError {
   return new AppError(401, "UNAUTHORIZED", message);
 }
 
-export function createAuthService(config: AppConfig): AuthService {
+export function createAuthService(
+  config: AppConfig,
+  dependencies: AccountsDependencies = {},
+): AuthService {
   async function issueSession(user: UserRecord): Promise<AuthSession> {
     const refreshToken = createRefreshToken();
 
@@ -79,6 +83,8 @@ export function createAuthService(config: AppConfig): AuthService {
           passwordHash,
           displayName: input.displayName,
         });
+
+        await afterCashChange(user.id, dependencies);
 
         return await issueSession(user);
       } catch (error) {

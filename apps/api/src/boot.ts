@@ -1,4 +1,6 @@
 import type { AppConfig } from "./lib/config.js";
+import { createSnapshotJob, type SnapshotJob } from "./modules/accounts/snapshot-job.js";
+import type { Broadcast } from "./modules/accounts/snapshot-writer.js";
 import { deleteExpiredRefreshTokens } from "./modules/auth/repository.js";
 
 const MILLISECONDS_PER_MINUTE = 60 * 1000;
@@ -6,6 +8,9 @@ const MILLISECONDS_PER_MINUTE = 60 * 1000;
 export interface BootDependencies {
   pruneExpiredRefreshTokens: () => Promise<number>;
   reportError: (message: string) => void;
+  snapshotJob: SnapshotJob;
+  broadcast: Broadcast;
+  now: () => Date;
 }
 
 export interface BootTasks {
@@ -23,6 +28,15 @@ export async function runBootTasks(
   const prune = dependencies.pruneExpiredRefreshTokens ?? deleteExpiredRefreshTokens;
   const reportError = dependencies.reportError ?? defaultReportError;
 
+  const snapshotJob =
+    dependencies.snapshotJob ??
+    createSnapshotJob({
+      config,
+      broadcast: dependencies.broadcast,
+      now: dependencies.now,
+      reportError,
+    });
+
   const pruneOnce = async (): Promise<void> => {
     try {
       await prune();
@@ -33,6 +47,9 @@ export async function runBootTasks(
   };
 
   await pruneOnce();
+  await snapshotJob.runSnapshotTick();
+  await snapshotJob.runThinning();
+  snapshotJob.start();
 
   const timer = setInterval(() => {
     void pruneOnce();
@@ -43,6 +60,7 @@ export async function runBootTasks(
   return {
     stop: () => {
       clearInterval(timer);
+      snapshotJob.stop();
     },
   };
 }

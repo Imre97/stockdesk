@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { apiErrorSchema, isApiErrorEnvelope } from "./api-error.js";
+import { API_ERROR_CODES, apiErrorSchema, isApiErrorEnvelope } from "./api-error.js";
 
 const ENVELOPE = { error: { code: "EMAIL_TAKEN", message: "Email already registered" } };
 
@@ -68,5 +68,21 @@ describe("isApiErrorEnvelope", () => {
     ["a number", 500],
   ])("returns false for %s", (_label, input) => {
     expect(isApiErrorEnvelope(input)).toBe(false);
+  });
+});
+
+describe("API_ERROR_CODES", () => {
+  it("lists exactly the transport-level codes", () => {
+    expect(API_ERROR_CODES).toEqual([
+      "NOT_FOUND",
+      "INTERNAL_ERROR",
+      "PAYLOAD_TOO_LARGE",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+    ]);
+  });
+
+  it.each([["VALIDATION_ERROR"], ["UNAUTHORIZED"]])("owns the shared code %s", (code) => {
+    expect(API_ERROR_CODES).toContain(code);
   });
 });

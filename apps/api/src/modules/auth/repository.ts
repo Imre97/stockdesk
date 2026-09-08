@@ -68,6 +68,7 @@ export async function createUserWithFundedAccount(input: CreateUserInput): Promi
         amount: initialCash,
         balanceAfter: initialCash,
         note: INITIAL_FUNDING_NOTE,
+        createdAt: new Date(),
       },
     });
 

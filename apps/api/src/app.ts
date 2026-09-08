@@ -8,8 +8,11 @@ import helmet from "helmet";
 import { getConfig, type AppConfig } from "./lib/config.js";
 import { AppError } from "./lib/errors.js";
 import { errorHandler } from "./middleware/error-handler.js";
+import { createAccountsRouter } from "./modules/accounts/router.js";
+import type { AccountsDependencies } from "./modules/accounts/snapshot-writer.js";
 import { createAuthRouter } from "./modules/auth/router.js";
 import { createHealthRouter, type DatabaseCheck } from "./modules/health/router.js";
+import { createSettingsRouter } from "./modules/settings/router.js";
 import { mountStaticWeb } from "./static-web.js";
 
 const MILLISECONDS_PER_MINUTE = 60 * 1000;
@@ -27,6 +30,7 @@ export interface CreateAppOptions {
   rateLimit?: RateLimitOptions;
   config?: AppConfig;
   checkDatabase?: DatabaseCheck;
+  deps?: AccountsDependencies;
 }
 
 function buildAuthRateLimiter(
@@ -50,6 +54,7 @@ function buildAuthRateLimiter(
 
 export function createApp(options: CreateAppOptions = {}): express.Express {
   const config = options.config ?? getConfig();
+  const dependencies = options.deps ?? {};
   const app = express();
 
   app.disable("x-powered-by");
@@ -59,9 +64,13 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
   app.use(cookieParser());
 
+  const authRateLimiter = buildAuthRateLimiter(options.rateLimit, config);
   const apiRouter = express.Router();
+
   apiRouter.use("/health", createHealthRouter(options.checkDatabase));
-  apiRouter.use("/auth", createAuthRouter(config, buildAuthRateLimiter(options.rateLimit, config)));
+  apiRouter.use("/auth", createAuthRouter(config, authRateLimiter, dependencies));
+  apiRouter.use("/accounts", createAccountsRouter(config, dependencies));
+  apiRouter.use("/settings", createSettingsRouter(config));
   app.use("/api/v1", apiRouter);
   app.use("/api/v1", (_request, _response, next) => {
     next(new AppError(404, "NOT_FOUND", "Route not found."));

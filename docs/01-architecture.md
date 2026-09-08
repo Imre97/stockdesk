@@ -91,7 +91,9 @@ Base path `/api/v1`. JSON only. `GET /api/v1/health` is public and used by the h
 
 ### WebSocket
 
-Single endpoint `/ws`. First client message must be `{ "type": "auth", "token": "<accessToken>" }` within 5 seconds, otherwise the server closes with code `4001`. After auth, messages are `{ "type": string, ...payload }`. Client subscriptions use `{ "type": "subscribe" | "unsubscribe", "channel": string, ... }`. Channels so far: `account_summary` (push, Module 2), `quotes`, `bars`, `market_status` (Module 3).
+Single endpoint `/ws`. First client message must be `{ "type": "auth", "token": "<accessToken>" }` within 5 seconds, otherwise the server closes with code `4001`. After auth, messages are `{ "type": string, ...payload }`.
+
+`account_summary` (Module 2) is pushed to every authenticated socket of the owning user without any subscription. Module 2 defines no client-to-server verb beyond `auth`; the server ignores unknown post-auth messages and keeps the socket open. Client subscriptions (`{ "type": "subscribe" | "unsubscribe", "channel": string, ... }`) arrive with Module 3, for the `quotes`, `bars` and `market_status` channels.
 
 ### Numbers on the wire
 

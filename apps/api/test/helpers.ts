@@ -1,9 +1,12 @@
 import { randomBytes } from "node:crypto";
+import { Decimal } from "@stockdesk/shared";
 import type { Express } from "express";
 import request from "supertest";
 import { expect } from "vitest";
+import { prisma } from "../src/lib/prisma.js";
 
-export const MONETARY_KEY_PATTERN = /cash|balance|amount|price|quantity|equity/i;
+export const MONETARY_KEY_PATTERN =
+  /cash|balance|amount|price|quantity|equity|positionsValue|unrealizedPnl|dailyPnl|averageCost|marketValue|dailyChange/i;
 
 export function uniqueEmail(prefix = "trader"): string {
   return `${prefix}-${randomBytes(6).toString("hex")}@example.com`;
@@ -98,4 +101,75 @@ export function expectNoMonetaryNumbers(value: unknown, path = "$"): void {
     }
     expectNoMonetaryNumbers(child, childPath);
   }
+}
+
+export function authHeader(token: string): Record<string, string> {
+  return { Authorization: `Bearer ${token}` };
+}
+
+export interface AccountSummaryBody {
+  id: string;
+  name: string;
+  cash: string;
+  positionsValue: string;
+  equity: string;
+  unrealizedPnl: string;
+  unrealizedPnlPct: string;
+  dailyPnl: string;
+  dailyPnlPct: string;
+  createdAt: string;
+}
+
+export interface CashTransactionBody {
+  id: string;
+  accountId: string;
+  type: string;
+  amount: string;
+  balanceAfter: string;
+  note: string | null;
+  referenceId: string | null;
+  createdAt: string;
+}
+
+export async function listAccounts(app: Express, token: string): Promise<AccountSummaryBody[]> {
+  const response = await request(app).get("/api/v1/accounts").set(authHeader(token));
+  expect(response.status).toBe(200);
+  return (response.body as { accounts: AccountSummaryBody[] }).accounts;
+}
+
+export async function mainAccount(app: Express, token: string): Promise<AccountSummaryBody> {
+  return firstOf(await listAccounts(app, token), "account");
+}
+
+export async function createAccount(app: Express, token: string, name: string): Promise<request.Response> {
+  return await request(app).post("/api/v1/accounts").set(authHeader(token)).send({ name });
+}
+
+export async function deposit(
+  app: Express,
+  token: string,
+  accountId: string,
+  amount: string,
+  note?: string,
+): Promise<request.Response> {
+  const body = note === undefined ? { amount } : { amount, note };
+  return await request(app).post(`/api/v1/accounts/${accountId}/deposits`).set(authHeader(token)).send(body);
+}
+
+export async function expectLedgerInvariant(accountId: string): Promise<void> {
+  const account = await prisma.account.findUnique({ where: { id: accountId } });
+  if (account === null) throw new Error(`Account ${accountId} does not exist.`);
+
+  const [latest] = await prisma.cashTransaction.findMany({
+    where: { accountId },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: 1,
+  });
+
+  if (latest === undefined) {
+    expect(new Decimal(account.cashBalance.toString()).isZero()).toBe(true);
+    return;
+  }
+
+  expect(new Decimal(account.cashBalance.toString()).equals(latest.balanceAfter.toString())).toBe(true);
 }
