@@ -8,6 +8,7 @@ Paper-trading demo: place market/limit orders on US stocks, watch live prices on
 stockdesk/
 ├── apps/web        # React + Vite + TypeScript, TanStack Router (file-based)
 ├── apps/api        # Express + TypeScript, Prisma + PostgreSQL, ws; serves the web build in production
+├── apps/e2e        # Playwright end-to-end suite (own workspace, no unit tests)
 ├── packages/shared # zod schemas, shared types, Decimal helpers
 └── docs/           # specifications (read before implementing anything)
 ```
@@ -35,7 +36,7 @@ Details: `docs/01-architecture.md`. Conventions: `docs/02-conventions.md`. Deplo
 ## Commands
 
 ```
-docker compose up -d       # local PostgreSQL (stockdesk + stockdesk_test databases)
+docker compose up -d       # local PostgreSQL (stockdesk + stockdesk_test + stockdesk_e2e databases)
 npm install                # installs workspaces and runs prisma generate
 npm run dev                # shared watch + api (:3000) + web (:5173) concurrently
 npm run build              # shared -> web -> api -> prisma generate
@@ -43,6 +44,8 @@ npm start                  # node apps/api/dist/server.js
 npm run lint               # eslint . (flat config at the repository root)
 npm run typecheck          # tsc --noEmit in every workspace
 npm test -- --run          # vitest in every workspace
+npm run e2e:install        # one-off: download the Playwright chromium browser
+npm run e2e                # Playwright end-to-end suite (starts api + web itself)
 npm run db:migrate         # prisma migrate dev
 npm run db:migrate:deploy  # prisma migrate deploy
 npm run db:generate        # prisma generate

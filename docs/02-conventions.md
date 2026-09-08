@@ -119,7 +119,8 @@ Soft limit 300 lines, hard limit 400 lines for every `.ts` and `.tsx` file. Enfo
 - Database migrations: created with `prisma migrate dev`, committed under `apps/api/prisma/migrations/`, applied in production with `prisma migrate deploy`. No destructive migration without a note in the pull request.
 - Shared: unit tests for zod schemas and Decimal helpers.
 - Web: store and hook unit tests without React where possible; component render tests with Testing Library.
-- Playwright e2e added once the first vertical slice exists.
+- End-to-end: Playwright in its own workspace `apps/e2e`, one spec per user-visible flow, against the dedicated `stockdesk_e2e` database (`DATABASE_URL_E2E`) so it never shares state with the unit test or development databases. The suite has no `test` script, so `npm test` and the test hook skip it; the Playwright global setup runs `prisma migrate deploy` and truncates every table before the run, and the config starts the API and the Vite dev server itself.
+- Run it locally with `npm run e2e` (once per machine `npm run e2e:install` for the chromium binary); in CI `.github/workflows/ci.yml` runs it on every push to `main` and every pull request and uploads the HTML report as an artifact when it fails.
 
 ## Git
 

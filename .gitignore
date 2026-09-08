@@ -13,3 +13,4 @@ Thumbs.db
 .vite/
 playwright-report/
 test-results/
+.auth/

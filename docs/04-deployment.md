@@ -27,9 +27,10 @@ Production URL shape: `https://stockdesk.onrender.com` serves `/` (web), `/api/v
 |------|----------|-------------|
 | `development` | Postgres 16 in Docker Compose, database `stockdesk` | `docker compose up -d`, `npm run dev` |
 | `test` | Same container, database `stockdesk_test` | Vitest, each run migrates and truncates |
+| `e2e` | Same container, database `stockdesk_e2e` | Playwright (`npm run e2e`), the global setup migrates and truncates, the config starts the API and the Vite dev server |
 | `production` | Neon | Render Web Service |
 
-`docker-compose.yml` at the repository root starts Postgres with both databases (see `infra/postgres/init.sql`). Named volume, no bind mount, so nothing lands in the repository.
+`docker-compose.yml` at the repository root starts Postgres with all three databases (see `infra/postgres/init.sql`). Named volume, no bind mount, so nothing lands in the repository.
 
 ## Environment variables
 
@@ -41,6 +42,7 @@ PORT=3000
 DATABASE_URL=postgresql://stockdesk:stockdesk@localhost:5432/stockdesk
 DIRECT_URL=postgresql://stockdesk:stockdesk@localhost:5432/stockdesk
 DATABASE_URL_TEST=postgresql://stockdesk:stockdesk@localhost:5432/stockdesk_test
+DATABASE_URL_E2E=postgresql://stockdesk:stockdesk@localhost:5432/stockdesk_e2e
 JWT_ACCESS_SECRET=
 JWT_ACCESS_TTL=15m
 REFRESH_TOKEN_TTL_DAYS=7
