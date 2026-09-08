@@ -118,8 +118,9 @@ describe("TickerSearch", () => {
 
     await screen.findByRole("option", { name: /TSLA/ });
 
-    fireEvent.keyDown(combobox(), { key: "Escape" });
+    const defaultAllowed = fireEvent.keyDown(combobox(), { key: "Escape" });
 
+    expect(defaultAllowed).toBe(false);
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
     expect(combobox()).toHaveAttribute("aria-expanded", "false");
   });

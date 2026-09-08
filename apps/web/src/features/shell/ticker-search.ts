@@ -76,6 +76,7 @@ export function useTickerSearch(): TickerSearchState {
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
       if (event.key === "Escape") {
+        event.preventDefault();
         setOpen(false);
         setActiveIndex(NO_ACTIVE_INDEX);
         return;
