@@ -1,6 +1,7 @@
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
+import { prisma } from "../src/lib/prisma.js";
 import { truncateAll } from "./db.js";
 import { DEFAULT_PASSWORD, extractRefreshCookie, findRefreshCookieHeader, registerUser } from "./helpers.js";
 
@@ -58,6 +59,29 @@ describe("POST /api/v1/auth/logout", () => {
 
     const refreshRotatedB = await request(app).post("/api/v1/auth/refresh").set("Cookie", rotatedB);
     expect(refreshRotatedB.status).toBe(200);
+  });
+
+  it("keeps a rotated token as a reuse tombstone", async () => {
+    const registered = await registerUser(app);
+
+    const rotated = await request(app).post("/api/v1/auth/refresh").set("Cookie", registered.cookie);
+    expect(rotated.status).toBe(200);
+    const successor = extractRefreshCookie(rotated);
+
+    const loggedOut = await request(app).post("/api/v1/auth/logout").set("Cookie", registered.cookie);
+    expect(loggedOut.status).toBe(204);
+
+    const replay = await request(app).post("/api/v1/auth/refresh").set("Cookie", registered.cookie);
+    expect(replay.status).toBe(401);
+    expect(replay.body).toMatchObject({ error: { code: "REFRESH_REUSED" } });
+
+    const successorAfterReuse = await request(app).post("/api/v1/auth/refresh").set("Cookie", successor);
+    expect(successorAfterReuse.status).toBe(401);
+
+    const live = await prisma.refreshToken.count({
+      where: { userId: registered.user.id, revokedAt: null },
+    });
+    expect(live).toBe(0);
   });
 
   it("succeeds without a cookie", async () => {

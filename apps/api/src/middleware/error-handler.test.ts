@@ -1,3 +1,4 @@
+import { API_ERROR_CODES } from "@stockdesk/shared";
 import express from "express";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
@@ -13,7 +14,7 @@ function buildApp(): express.Express {
   });
 
   app.get("/app-error-with-details", () => {
-    throw new AppError(400, "BAD_REQUEST", "Bad request.", { field: "email" });
+    throw new AppError(422, "VALIDATION_ERROR", "Request validation failed.", { field: "email" });
   });
 
   app.get("/zod-error", () => {
@@ -41,8 +42,16 @@ describe("errorHandler", () => {
   it("includes details when the AppError carries them", async () => {
     const response = await request(buildApp()).get("/app-error-with-details");
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe("VALIDATION_ERROR");
     expect(response.body.error.details).toEqual({ field: "email" });
+  });
+
+  it("rejects an error code outside the shared union at compile time", () => {
+    // @ts-expect-error a code outside AuthErrorCode | ApiErrorCode must not compile
+    const invalid = new AppError(400, "NOT_A_CODE", "Bad request.");
+
+    expect(invalid.code).toBe("NOT_A_CODE");
   });
 
   it("maps a ZodError to 422 VALIDATION_ERROR", async () => {
@@ -58,6 +67,7 @@ describe("errorHandler", () => {
 
     expect(response.status).toBe(500);
     expect(response.body.error.code).toBe("INTERNAL_ERROR");
+    expect(API_ERROR_CODES).toContain(response.body.error.code);
     expect(response.body.error.message).not.toContain("boom");
   });
 });

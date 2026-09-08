@@ -47,7 +47,7 @@ Base path: `/api/v1/auth`
 | POST | `/register` | `{ email, password, displayName }` | `201 { user, accessToken }` + refresh cookie | Email normalized to lowercase. Password at least 8 characters. `409 EMAIL_TAKEN` on duplicate. |
 | POST | `/login` | `{ email, password }` | `200 { user, accessToken }` + refresh cookie | `401 INVALID_CREDENTIALS` for both unknown email and wrong password; identical response shape and timing-safe comparison to avoid user enumeration. |
 | POST | `/refresh` | none, refresh cookie | `200 { accessToken }` + new refresh cookie | Rotation: current token revoked, new one issued. Presenting an already revoked token revokes every token of that user and returns `401 REFRESH_REUSED`. Missing or expired cookie: `401 UNAUTHORIZED`. |
-| POST | `/logout` | none, refresh cookie | `204` | Deletes the presented refresh token row and clears the cookie. Other sessions of the same user stay live, and a later refresh with the logged-out cookie takes the unknown-token path (`401 UNAUTHORIZED`), not reuse detection. Idempotent. |
+| POST | `/logout` | none, refresh cookie | `204` | Deletes the presented refresh token row when it is still live and clears the cookie. Already revoked (rotated) rows are kept as tombstones so reuse detection still fires on a replayed old value. Other sessions of the same user stay live, and a later refresh with the logged-out cookie takes the unknown-token path (`401 UNAUTHORIZED`), not reuse detection. Idempotent. |
 | GET | `/me` | none, `Authorization: Bearer` | `200 { user }` | Protected. |
 
 ### `user` shape

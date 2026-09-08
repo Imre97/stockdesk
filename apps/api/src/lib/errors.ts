@@ -1,9 +1,11 @@
+import type { ErrorCode } from "@stockdesk/shared";
+
 export class AppError extends Error {
   readonly status: number;
-  readonly code: string;
+  readonly code: ErrorCode;
   readonly details: unknown;
 
-  constructor(status: number, code: string, message: string, details?: unknown) {
+  constructor(status: number, code: ErrorCode, message: string, details?: unknown) {
     super(message);
     this.name = "AppError";
     this.status = status;

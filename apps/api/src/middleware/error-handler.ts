@@ -1,16 +1,17 @@
+import type { ErrorCode } from "@stockdesk/shared";
 import type { ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
 import { AppError } from "../lib/errors.js";
 
 interface ErrorEnvelope {
   error: {
-    code: string;
+    code: ErrorCode;
     message: string;
     details?: unknown;
   };
 }
 
-function envelope(code: string, message: string, details?: unknown): ErrorEnvelope {
+function envelope(code: ErrorCode, message: string, details?: unknown): ErrorEnvelope {
   if (details === undefined) {
     return { error: { code, message } };
   }
