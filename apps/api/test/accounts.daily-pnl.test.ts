@@ -10,6 +10,14 @@ import { listAccounts, mainAccount, registerUser, type AccountSummaryBody } from
 const DST_START_NOW = new Date("2026-03-09T18:00:00.000Z");
 const DST_END_NOW = new Date("2026-11-02T18:00:00.000Z");
 const WEEKEND_NOW = new Date("2026-03-08T18:00:00.000Z");
+const DST_END_SUNDAY_NOW = new Date("2026-11-01T18:00:00.000Z");
+const DST_END_PRE_OPEN_NOW = new Date("2026-11-02T13:00:00.000Z");
+
+const AROUND_LAST_OCTOBER_SESSION: [string, string][] = [
+  ["2026-10-30T13:29:00.000Z", "70000.00"],
+  ["2026-10-30T13:31:00.000Z", "60000.00"],
+  ["2026-10-31T18:00:00.000Z", "50000.00"],
+];
 
 function appAt(now: Date): Express {
   return createApp({ rateLimit: { enabled: false }, deps: { now: () => now } });
@@ -91,6 +99,35 @@ describe("daily profit and loss reference", () => {
 
     expect(summary.dailyPnl).toBe("50000.00");
     expect(summary.dailyPnlPct).toBe("100.00");
+  });
+
+  it("reaches back to the Friday boundary on the day daylight saving ends", async () => {
+    const app = appAt(DST_END_SUNDAY_NOW);
+    const registered = await registerUser(app);
+    const account = await mainAccount(app, registered.accessToken);
+
+    await seed(account.id, AROUND_LAST_OCTOBER_SESSION);
+
+    const summary = await summaryFor(app, registered.accessToken, account.id);
+
+    expect(summary.dailyPnl).toBe("30000.00");
+    expect(summary.dailyPnlPct).toBe("42.86");
+  });
+
+  it("keeps the Friday boundary before Monday 09:30 New York", async () => {
+    const app = appAt(DST_END_PRE_OPEN_NOW);
+    const registered = await registerUser(app);
+    const account = await mainAccount(app, registered.accessToken);
+
+    await seed(account.id, [
+      ...AROUND_LAST_OCTOBER_SESSION,
+      ["2026-11-02T12:00:00.000Z", "10000.00"],
+    ]);
+
+    const summary = await summaryFor(app, registered.accessToken, account.id);
+
+    expect(summary.dailyPnl).toBe("30000.00");
+    expect(summary.dailyPnlPct).toBe("42.86");
   });
 
   it("reports zero without a snapshot before the boundary", async () => {

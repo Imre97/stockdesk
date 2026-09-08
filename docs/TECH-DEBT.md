@@ -3,10 +3,10 @@
 Last updated: 2026-09-08
 
 ## Summary
-- Open: 10 (high 0, medium 2, low 8)
-- Fixed since last update: 3
-- Trend: Module 2 (dashboard) closed the two auth-review items it was blocked on (centered card, AC9 vacuity) and turned the i18n locale-loading item into a maintenance improvement without removing the eager bundling it was filed for, so TD-5 stays open; new debt is concentrated in web/e2e test-infra friction rather than in application logic.
-- Recommended next: TD-4 (production static-serving path still untested end to end), TD-22 (fix e2e webServer/migration ordering, currently just noisy), TD-24 (revisit trading-day approximation in Module 3).
+- Open: 17 (high 0, medium 4, low 13)
+- Fixed since last update: 0
+- Trend: The `8cdd7be` fix round closed both dashboard-review blockers and all five should-fix items (equity bucket time zone, daily-P&L DST coverage, registry lifecycle test, deposit rounding-before-validation, dialog/menu orchestration moved out of render files) and the two prior `staleTime` gaps; remaining debt is now concentrated in market-data broadcast/query efficiency (medium) and a growing pile of small dead-code and test-infra items, plus a newly observed shared-database collision between the Stop hook and subagent test runs.
+- Recommended next: TD-4 (production static-serving path still untested end to end), TD-26 (WebSocket half-open sockets never reaped), TD-28 (per-tick reference query and unbounded `listAllAccounts()`).
 
 ## Open
 | Id | Area | Summary | Impact | Effort | Timing | Source | Status |
@@ -22,6 +22,12 @@ Last updated: 2026-09-08
 | TD-22 | e2e | The Playwright API webServer boots before `globalSetup` runs `prisma migrate deploy`, so the boot snapshot and thinning jobs log `table AccountEquitySnapshot does not exist` against a fresh stockdesk_e2e (harmless, noisy) | low | S | later | docs/modules/dashboard.md implementation, 2026-09-08 | open |
 | TD-23 | e2e/infra | On Windows a Playwright webServer `tsx watch src/server.ts` process survived the run once (orphan on port 3000 blocked the next run; killed manually); consider `tsx src/server.ts` without watch or an explicit teardown that kills the port | low | S | later | docs/modules/dashboard.md implementation, 2026-09-08 | open |
 | TD-24 | api | Trading day is approximated as Monday to Friday in New York with no holiday calendar until Module 3's market status (recorded decision, revisit in Module 3) | low | S | module: market-status | docs/modules/dashboard.md implementation, 2026-09-08 | accepted |
+| TD-25 | api/web | Dead code: `wsAuthenticatedUserId` (`apps/api/src/ws/auth-handshake.ts:18`) has no consumer, `depositViaApi` e2e helper (`apps/e2e/tests/helpers.ts:119`) is unused, `ProfileMenu`'s `defaultOpen` prop (`apps/web/src/features/shell/components/ProfileMenu.tsx:20`) exists only for tests, and the `Array.isArray(request.params.id)` branch in `apps/api/src/modules/accounts/router.ts:28` is unreachable for Express route params | low | S | later | docs/reviews/2026-09-08-dashboard.md | open |
+| TD-26 | api | `apps/api/src/ws/user-registry.ts` has no ping/pong heartbeat sweep, so half-open sockets stay registered until the process restarts | medium | M | module: market-data | docs/reviews/2026-09-08-dashboard.md | open |
+| TD-27 | api | `apps/api/src/modules/accounts/deposits.ts:55` recomputes account summaries via `summarizeAccounts` after `afterCashChange` already built them in the snapshot writer, one redundant `referenceEquities` round trip per deposit | low | S | now | docs/reviews/2026-09-08-dashboard.md | open |
+| TD-28 | api | `apps/api/src/modules/accounts/snapshot-writer.ts` issues one `referenceEquities` query per user per tick and broadcasts to users with no open sockets; `listAllAccounts()` (`repository.ts:66`) loads every account of every user each tick with no paging | medium | M | module: market-data | docs/reviews/2026-09-08-dashboard.md | open |
+| TD-29 | api | `CashTransaction.@@index([accountId, createdAt])` (`schema.prisma:69`) omits `id`, while the ledger keyset page orders by `(createdAt desc, id desc)` | low | S | module: portfolio | docs/reviews/2026-09-08-dashboard.md | open |
+| TD-30 | infra | `scripts/hooks/run-tests.mjs` Stop hook and a subagent's vitest run can hit the shared `stockdesk_test` database concurrently, causing TRUNCATE deadlocks and spurious 500/404s (observed 5+ times on 2026-09-08); needs a repo-local lock file written by the api vitest `globalSetup` and honored by the hook, or a hook flag to skip when another vitest process is running | low | S | before Module 3 | docs/reviews/2026-09-08-dashboard.md | open |
 
 ## Closed
 | Id | Area | Summary | Fixed in | Closed on |

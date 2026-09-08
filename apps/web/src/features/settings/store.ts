@@ -16,6 +16,7 @@ export interface SettingsState {
   setLanguage: (language: Language) => void;
   setTheme: (theme: Theme) => void;
   setDefaultAccountId: (accountId: string | null) => void;
+  reset: () => void;
 }
 
 const DEFAULT_LANGUAGE: Language = "en";
@@ -68,5 +69,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     setLanguage: (language) => change({ language }),
     setTheme: (theme) => change({ theme }),
     setDefaultAccountId: (accountId) => change({ defaultAccountId: accountId }),
+
+    reset: () => change({ defaultAccountId: null, status: "idle" }),
   };
 });

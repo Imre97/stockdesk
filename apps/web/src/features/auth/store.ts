@@ -3,6 +3,7 @@ import { create } from "zustand";
 
 import { configureHttp } from "../../lib/http";
 import * as api from "./api";
+import { resetSessionState } from "./session-reset";
 
 export type AuthStatus = "idle" | "loading" | "authenticated" | "anonymous";
 
@@ -34,6 +35,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   clearSession: () => {
     set({ user: null, accessToken: null, status: "anonymous" });
+    resetSessionState();
   },
 
   login: async (input) => {

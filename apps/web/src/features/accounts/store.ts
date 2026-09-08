@@ -14,6 +14,7 @@ export interface AccountsState {
   applyAccountSummary: (message: AccountSummaryMessage) => void;
   setActiveAccount: (accountId: string) => void;
   upsertAccount: (account: AccountSummaryInput) => void;
+  reset: () => void;
 }
 
 function defaultAccountId(): string | null {
@@ -39,6 +40,8 @@ export const useAccountsStore = create<AccountsState>((set, get) => {
     applyAccountSummary: (message) => replace(parseAccountSummaries(message.accounts)),
 
     setActiveAccount: (accountId) => set({ activeAccountId: accountId }),
+
+    reset: () => set({ accounts: [], activeAccountId: null, status: "idle" }),
 
     upsertAccount: (account) => {
       const [parsed] = parseAccountSummaries([account]);

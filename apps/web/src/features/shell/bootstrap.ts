@@ -1,7 +1,9 @@
 import * as accountsApi from "../accounts/api";
+import { useAuthStore } from "../auth/store";
 import { useAccountsStore } from "../accounts/store";
 import * as settingsApi from "../settings/api";
 import { useSettingsStore } from "../settings/store";
+import { getBootstrappedUserId, setBootstrappedUserId } from "./bootstrap-state";
 
 /**
  * Runs once before the first authenticated render: the cached settings paint the right
@@ -9,12 +11,11 @@ import { useSettingsStore } from "../settings/store";
  * the active account is resolved from `defaultAccountId` before any component reads it.
  */
 export async function bootstrapAuthenticatedApp(): Promise<void> {
-  const settingsStore = useSettingsStore.getState();
-  const accountsStore = useAccountsStore.getState();
+  const userId = useAuthStore.getState().user?.id ?? null;
 
-  settingsStore.hydrateFromCache();
+  useSettingsStore.getState().hydrateFromCache();
 
-  if (settingsStore.status === "loaded" && accountsStore.status === "loaded") return;
+  if (userId !== null && getBootstrappedUserId() === userId) return;
 
   const [settings, accounts] = await Promise.all([
     settingsApi.fetchSettings().catch(() => null),
@@ -28,4 +29,6 @@ export async function bootstrapAuthenticatedApp(): Promise<void> {
   if (accounts !== null) {
     useAccountsStore.getState().setAccounts(accounts.accounts);
   }
+
+  setBootstrappedUserId(userId);
 }
