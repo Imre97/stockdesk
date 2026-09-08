@@ -72,7 +72,7 @@ The same symbol never mixes real and simulated prices within one server run: onc
 - Universe: 40 well-known US tickers with static profile data, seeded base prices, and `shortable` / `fractionable` flags (a few tickers set to `false` so both restrictions are testable) in `apps/api/src/modules/market/providers/simulated/universe.ts`.
 - Ticks: geometric Brownian motion per subscribed symbol every second, annualized volatility per symbol, seeded PRNG so a given server run is deterministic under test.
 - Bars: generated from the same seeded walk so repeated requests for the same range return identical candles. Generated back to 2 years of daily data and 30 days of minute data.
-- Market status: always `open`.
+- Market status: always `open` while the simulated provider is the active stream provider (see Price service).
 
 ## Data model (Prisma)
 
@@ -91,6 +91,7 @@ model Symbol {
   updatedAt DateTime @updatedAt
   profile   SymbolProfile?
   candles   Candle[]
+  coverage  CandleCoverage[]
 
   @@index([name])
 }
@@ -129,11 +130,26 @@ model Candle {
   @@unique([symbolId, timeframe, time])
   @@index([symbolId, timeframe, time])
 }
+
+model CandleCoverage {
+  id        String   @id @default(cuid())
+  symbolId  String
+  symbol    Symbol   @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+  timeframe String
+  from      DateTime
+  to        DateTime
+
+  @@index([symbolId, timeframe, from])
+}
 ```
 
 - `timeframe` values: `1m`, `5m`, `15m`, `1h`, `1D`, `1W`, `1M`. Mapping to provider names lives in each provider.
-- Candle cache policy: a bars request first reads the cache, computes missing sub-ranges, fetches only those from the provider, stores them, and returns the merged result. The current, still-forming candle is stored with `isFinal = false` and overwritten on every live update.
+- Decimal columns: prices, quantities and volume `@db.Decimal(20, 8)`; `marketCap` `@db.Decimal(20, 2)`; `sharesOutstanding` `@db.Decimal(20, 8)`.
+- The Prisma model keeps the name `Symbol`; code never imports the bare `Symbol` type from `@prisma/client` (it would shadow the global), it uses its own record types or `Prisma.SymbolGetPayload`.
+- Candle cache policy: a bars request reads the cache for `limit` bars before `end`. `CandleCoverage` rows record every half-open interval `[from, to)` that has been fetched from a provider for a symbol and timeframe (merged when they touch or overlap). The request is a cache hit when the cache holds `limit` bars and the coverage contains the interval from the oldest returned bar to `end`; otherwise the missing sub-range is fetched from the provider, upserted (`skipDuplicates` on the unique key, final bars never overwritten by a provider fetch), the coverage is extended by the fetched interval even when the provider returned no bars (a real gap such as a weekend), and the cache is read again. `hasMore` is true when a cached bar older than the page exists or the provider page was full. The current, still-forming candle is stored with `isFinal = false` and overwritten on every live update.
+- Candle cap: at most `CANDLE_MAX_ROWS_PER_SERIES = 5000` rows per symbol and timeframe (code constant). A thinning job started from `runBootTasks()` deletes the oldest rows above the cap and trims the coverage to the oldest remaining bar, once at boot and then every `CANDLE_THINNING_INTERVAL_HOURS`.
 - Market cap stored in full USD, not millions.
+- Symbol master refresh: `runBootTasks()` starts it in the background after the server listens; it runs only when the newest `Symbol.updatedAt` is older than `SYMBOL_REFRESH_HOURS` (or the table is empty). Assets that disappear from the provider list are set `isActive = false`, never deleted. Search and detail only return active symbols.
 
 ## Price service
 
@@ -141,8 +157,12 @@ model Candle {
 
 - `getLastPrice(symbol): Decimal | null` from the in-memory last-trade map, falling back to the latest cached candle close.
 - `getPrevClose(symbol): Decimal | null` from the latest final `1D` candle before the current trading day.
-- `getMarketStatus(): { status: "open" | "closed" | "pre" | "after", nextOpenAt, nextCloseAt }` computed from the NYSE calendar (regular hours 09:30 to 16:00 America/New_York, weekends, fixed holiday list in code for the current and next year).
+- `getMarketStatus(): { status: "open" | "closed" | "pre" | "after", nextOpenAt, nextCloseAt }` follows the active `stream` provider. Simulated stream: always `open` (`nextCloseAt` null). Real stream: computed from the NYSE calendar in `apps/api/src/modules/market/calendar.ts`: regular hours 09:30 to 16:00 America/New_York, `pre` 04:00 to 09:30, `after` 16:00 to 20:00, `closed` otherwise and on weekends, a fixed holiday list and early-close days (13:00) in code for 2026 and 2027. The calendar's `isTradingDay` replaces the Monday-to-Friday rule in `apps/api/src/modules/accounts/ny-time.ts` (closes TD-24), so the daily P&L reference skips holidays regardless of the provider.
+- Status changes are detected by a one-minute check in the price service and pushed as `market_status`.
+- Quote for a symbol (`SymbolDetail.quote`, `prevClose` on `quote` messages) is derived, not fetched: `last` from the last-trade map or the latest cached candle close, `open`, `high`, `low`, `volume` from the current non-final `1D` candle, `prevClose` from the latest final `1D` candle before the current trading day. Opening a symbol page warms the `1D` cache (`limit` 5). When no candle exists at all `quote` is `null`.
 - `ensureStreaming(symbols)`: reference-counted subscription requests from WebSocket clients and from the accounts module for symbols with open positions.
+- The accounts module receives the price service through its dependencies (`getLastPrice`, `getPrevClose`) and uses it in the summary math; with no positions before Module 4 every value stays zero.
+- Bar aggregation: every streamed symbol always aggregates `1m` and `1D` from trades; other timeframes only while a `bars` subscription exists for them. A bucket closes (`isFinal = true`, persisted) on the first trade of the next bucket or by a rollover sweep that runs at each bucket boundary with an injected clock, so a quiet symbol still gets its final bar.
 
 ## WebSocket
 
@@ -236,7 +256,17 @@ Base path `/api/v1`, all endpoints protected.
 
 ### Error codes
 
-`SYMBOL_NOT_FOUND`, `INVALID_TIMEFRAME`, `PROVIDER_UNAVAILABLE`, `VALIDATION_ERROR`, `UNAUTHORIZED`.
+| Code | HTTP | WebSocket | Meaning |
+|------|------|-----------|---------|
+| `SYMBOL_NOT_FOUND` | 404 | `{ "type": "error", "code": "SYMBOL_NOT_FOUND", "symbol" }` | Unknown or inactive symbol. |
+| `INVALID_TIMEFRAME` | 422 | same code on a `bars` subscribe | `timeframe` not in the list. |
+| `PROVIDER_UNAVAILABLE` | 503 | none | Every capable provider failed (after one retry each) for a request that needs fresh data. |
+| `SUBSCRIPTION_LIMIT` | none | `{ "type": "error", "code": "SUBSCRIPTION_LIMIT" }` | More than 50 quote or 5 bar subscriptions on one socket. |
+| `VALIDATION_ERROR` | 422 | none | Invalid query: `q` empty or over 20 characters, `limit` over the maximum (no clamping), malformed `end`, symbol with characters outside `[A-Z0-9.-]` after upper-casing. |
+| `ACCOUNT_NOT_FOUND` | 404 | none | `GET /accounts/:id/trades` for an account the caller does not own. |
+| `UNAUTHORIZED` | 401 | close `4001` | Existing. |
+
+Market error codes live in `MARKET_ERROR_CODES` in `packages/shared/src/market.ts` and join the `ErrorCode` union. `GET /accounts/:id/trades` returns `{ trades: [], nextCursor: null }` until Module 4.
 
 ## Shared package
 
@@ -331,9 +361,27 @@ ALPACA_DATA_FEED=iex
 FINNHUB_API_KEY=
 SYMBOL_REFRESH_HOURS=24
 QUOTE_THROTTLE_PER_SECOND=4
+CANDLE_THINNING_INTERVAL_HOURS=24
 ```
 
-With empty keys the server runs on the simulated provider alone and logs which providers are active.
+With empty keys the server runs on the simulated provider alone and logs which providers are active. The API test suite sets `MARKET_DATA_PROVIDERS=simulated` in the vitest environment; the Alpaca and Finnhub adapters receive their `fetch` and WebSocket constructors by injection, so no test opens a network connection.
+
+Runtime: Node 22 (`engines`, `render.yaml` `NODE_VERSION`, CI `node-version`, `docs/04-deployment.md`). The Alpaca adapter parses prices with the `JSON.parse` reviver's `context.source` (available from Node 21), which yields the raw digit string for `new Decimal(...)`.
+
+## Decisions (pre-review 2026-09-08)
+
+1. Tech debt in scope: TD-30, TD-31, TD-32, TD-33 as Phase 0 before any module code; TD-24 (holiday calendar) and TD-26 (WebSocket ping/pong heartbeat sweep) inside the module; TD-5 (lazy locale loading, triggered by the new `market` namespace), TD-34 (user-scoped query keys), TD-35 (e2e for a second user in the same tab). TD-28 deferred to Module 4.
+2. Market status follows the stream provider (simulated always `open`, real providers the NYSE calendar). See Price service.
+3. Candle cache tracks fetched intervals in `CandleCoverage`. See Data model.
+4. Node 22 with the native `JSON.parse` source reviver for Alpaca prices.
+5. Composite routing: the "never mix real and simulated" rule covers `stream`, `bars` and `quote`. Once a real provider served price data for a symbol in this server run, the simulated provider is not used for that symbol; when the real chain is exhausted the request fails with `503 PROVIDER_UNAVAILABLE`. Profile falls back to `null` fields, never to simulated profile data for a real symbol.
+6. `market_status` needs no subscription: it is pushed to every authenticated socket right after `auth_ok` and on every change, like `account_summary`.
+7. Symbol master seeding runs in the background from `runBootTasks()` with the staleness check above; the test suite seeds the simulated universe with a `seedSymbols()` helper after each truncate.
+8. Alpaca polling fallback above 30 streamed symbols uses the multi-symbol endpoint `GET /v2/stocks/trades/latest?symbols=A,B,C` once per 5 seconds (one call, not one per symbol, to stay under 200 requests per minute).
+9. Finnhub profile and metrics: fetched synchronously with a 3 second timeout when the symbol has never been profiled; when present but stale the cached values are returned and the refresh runs in the background. Without a Finnhub key the `stats` and `industry` fields are `null`.
+10. Simulated provider exposes `emitTick()` so integration tests drive ticks without timers; `start()` installs the one-second interval only in `server.ts`. The default seed is a code constant; tests pass an explicit seed.
+11. Web WebSocket client becomes a module singleton in `apps/web/src/lib/ws.ts` (connect once per session, `subscribe`/`unsubscribe` helpers with reference counts, resubscribe after reconnect, `disconnect` called from `resetClientState`, which closes TD-32). The market store registers in `resetClientState`; `localStorage.recentSymbols` is cleared on reset, `localStorage.chartPrefs` survives as a device preference.
+12. Route param `/symbols/:symbol` is upper-cased on both sides before lookup.
 
 ## Acceptance criteria
 
