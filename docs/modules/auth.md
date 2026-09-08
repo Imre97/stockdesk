@@ -84,7 +84,7 @@ Balances are not part of the user shape; they come from `GET /api/v1/accounts` (
 
 ### Password hashing
 
-`bcrypt` with cost 12. Alternative `argon2id` acceptable if the native build works cleanly on the target machines; decide at implementation and record the choice here.
+`bcrypt` with cost 12. Chosen at implementation on 2026-09-08 because the native `bcrypt` build works cleanly on the target machines; `argon2id` was not adopted.
 
 ## WebSocket authentication
 
@@ -100,7 +100,7 @@ Access token expiry does not close an already authenticated socket. Clients reco
 ## Server components
 
 - `requireAuth` middleware: verifies the Bearer JWT, sets `req.user = { id }`, otherwise `401 UNAUTHORIZED`.
-- Rate limiting on `/login` and `/register`: 10 requests per 15 minutes per IP via `express-rate-limit`, error code `RATE_LIMITED`.
+- Rate limiting on `/login` and `/register`: 10 requests per 15 minutes per IP via `express-rate-limit`, error code `RATE_LIMITED`. The default is configurable through `AUTH_RATE_LIMIT_MAX` and `AUTH_RATE_LIMIT_WINDOW_MINUTES`.
 - `helmet`, `cors` with origin from `CORS_ORIGIN`, `cookie-parser`.
 - Module files: `apps/api/src/modules/auth/{router,service,repository}.ts`, `apps/api/src/middleware/require-auth.ts`, `apps/api/src/ws/auth-handshake.ts`.
 
@@ -154,6 +154,8 @@ JWT_ACCESS_SECRET=
 JWT_ACCESS_TTL=15m
 REFRESH_TOKEN_TTL_DAYS=7
 CORS_ORIGIN=http://localhost:5173
+AUTH_RATE_LIMIT_MAX=10
+AUTH_RATE_LIMIT_WINDOW_MINUTES=15
 ```
 
 This module also adds `GET /api/v1/health` (public): `200 { "status": "ok", "database": "ok" }`, `503` with `"database": "unreachable"` when the database query fails. Later modules extend the payload.

@@ -46,4 +46,41 @@ describe("loadConfig", () => {
   it("defaults WEB_DIST_DIR to the web build output", () => {
     expect(loadConfig(baseEnv).webDistDir).toBe("../web/dist");
   });
+
+  it("defaults the auth rate limit to 10 requests per 15 minutes", () => {
+    const config = loadConfig(baseEnv);
+
+    expect(config.authRateLimitMax).toBe(10);
+    expect(config.authRateLimitWindowMinutes).toBe(15);
+  });
+
+  it("parses a provided auth rate limit", () => {
+    const config = loadConfig({
+      ...baseEnv,
+      AUTH_RATE_LIMIT_MAX: "25",
+      AUTH_RATE_LIMIT_WINDOW_MINUTES: "5",
+    });
+
+    expect(config.authRateLimitMax).toBe(25);
+    expect(config.authRateLimitWindowMinutes).toBe(5);
+  });
+
+  it("rejects a non-positive auth rate limit", () => {
+    expect(() => loadConfig({ ...baseEnv, AUTH_RATE_LIMIT_MAX: "0" })).toThrowError(/AUTH_RATE_LIMIT_MAX/);
+    expect(() => loadConfig({ ...baseEnv, AUTH_RATE_LIMIT_MAX: "-1" })).toThrowError(/AUTH_RATE_LIMIT_MAX/);
+    expect(() => loadConfig({ ...baseEnv, AUTH_RATE_LIMIT_WINDOW_MINUTES: "0" })).toThrowError(
+      /AUTH_RATE_LIMIT_WINDOW_MINUTES/,
+    );
+    expect(() => loadConfig({ ...baseEnv, AUTH_RATE_LIMIT_WINDOW_MINUTES: "-15" })).toThrowError(
+      /AUTH_RATE_LIMIT_WINDOW_MINUTES/,
+    );
+  });
+
+  it("rejects a non-integer auth rate limit", () => {
+    expect(() => loadConfig({ ...baseEnv, AUTH_RATE_LIMIT_MAX: "1.5" })).toThrowError(/AUTH_RATE_LIMIT_MAX/);
+    expect(() => loadConfig({ ...baseEnv, AUTH_RATE_LIMIT_MAX: "ten" })).toThrowError(/AUTH_RATE_LIMIT_MAX/);
+    expect(() => loadConfig({ ...baseEnv, AUTH_RATE_LIMIT_WINDOW_MINUTES: "2.5" })).toThrowError(
+      /AUTH_RATE_LIMIT_WINDOW_MINUTES/,
+    );
+  });
 });

@@ -1,8 +1,9 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Outlet, createRootRoute } from "@tanstack/react-router";
+import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 import { I18nextProvider } from "react-i18next";
 import { i18n } from "../i18n";
 import { queryClient } from "../lib/query-client";
+import type { AuthRouterContext } from "../lib/router-context";
 
 function RootLayout() {
   return (
@@ -16,4 +17,4 @@ function RootLayout() {
   );
 }
 
-export const Route = createRootRoute({ component: RootLayout });
+export const Route = createRootRouteWithContext<AuthRouterContext>()({ component: RootLayout });

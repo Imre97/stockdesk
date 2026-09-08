@@ -126,6 +126,7 @@ export default tseslint.config(
     plugins: { i18next },
     rules: {
       "no-restricted-syntax": "off",
+      "no-restricted-imports": "off",
       "i18next/no-literal-string": "off",
     },
   },

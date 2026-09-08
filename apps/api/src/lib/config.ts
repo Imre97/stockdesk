@@ -11,6 +11,8 @@ const environmentSchema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
   CORS_ORIGIN: z.string().min(1).default("http://localhost:5173"),
   WEB_DIST_DIR: z.string().min(1).default("../web/dist"),
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+  AUTH_RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
 });
 
 export interface AppConfig {
@@ -24,6 +26,8 @@ export interface AppConfig {
   refreshTokenTtlDays: number;
   corsOrigin: string;
   webDistDir: string;
+  authRateLimitMax: number;
+  authRateLimitWindowMinutes: number;
   isProduction: boolean;
 }
 
@@ -51,6 +55,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     refreshTokenTtlDays: values.REFRESH_TOKEN_TTL_DAYS,
     corsOrigin: values.CORS_ORIGIN,
     webDistDir: values.WEB_DIST_DIR,
+    authRateLimitMax: values.AUTH_RATE_LIMIT_MAX,
+    authRateLimitWindowMinutes: values.AUTH_RATE_LIMIT_WINDOW_MINUTES,
     isProduction: values.NODE_ENV === "production",
   };
 }

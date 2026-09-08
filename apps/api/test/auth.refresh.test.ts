@@ -1,0 +1,86 @@
+import request from "supertest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { createApp } from "../src/app.js";
+import { prisma } from "../src/lib/prisma.js";
+import { truncateAll } from "./db.js";
+import { extractRefreshCookie, findRefreshCookieHeader, registerUser } from "./helpers.js";
+
+const app = createApp({ rateLimit: { enabled: false } });
+
+describe("POST /api/v1/auth/refresh", () => {
+  beforeEach(async () => {
+    await truncateAll();
+  });
+
+  it("rotates the refresh token and issues a working access token", async () => {
+    const registered = await registerUser(app);
+
+    const response = await request(app).post("/api/v1/auth/refresh").set("Cookie", registered.cookie);
+
+    expect(response.status).toBe(200);
+
+    const body = response.body as { accessToken: unknown };
+    expect(typeof body.accessToken).toBe("string");
+
+    const rotated = extractRefreshCookie(response);
+    expect(rotated).not.toBe(registered.cookie);
+    expect(findRefreshCookieHeader(response)).toContain("Path=/api/v1/auth");
+
+    const me = await request(app).get("/api/v1/auth/me").set("Authorization", `Bearer ${body.accessToken as string}`);
+    expect(me.status).toBe(200);
+    expect((me.body as { user: { id: string } }).user.id).toBe(registered.user.id);
+  });
+
+  it("detects reuse of a rotated token and revokes every session of the user", async () => {
+    const registered = await registerUser(app);
+
+    const first = await request(app).post("/api/v1/auth/refresh").set("Cookie", registered.cookie);
+    expect(first.status).toBe(200);
+    const rotated = extractRefreshCookie(first);
+
+    const reuse = await request(app).post("/api/v1/auth/refresh").set("Cookie", registered.cookie);
+    expect(reuse.status).toBe(401);
+    expect(reuse.body).toMatchObject({ error: { code: "REFRESH_REUSED" } });
+
+    const active = await prisma.refreshToken.count({
+      where: { userId: registered.user.id, revokedAt: null },
+    });
+    expect(active).toBe(0);
+
+    const afterRevocation = await request(app).post("/api/v1/auth/refresh").set("Cookie", rotated);
+    expect(afterRevocation.status).toBe(401);
+    expect(["UNAUTHORIZED", "REFRESH_REUSED"]).toContain(
+      (afterRevocation.body as { error: { code: string } }).error.code,
+    );
+  });
+
+  it("rejects a request without a cookie", async () => {
+    const response = await request(app).post("/api/v1/auth/refresh");
+
+    expect(response.status).toBe(401);
+    expect(response.body).toMatchObject({ error: { code: "UNAUTHORIZED" } });
+  });
+
+  it("rejects an unknown token", async () => {
+    await registerUser(app);
+
+    const response = await request(app).post("/api/v1/auth/refresh").set("Cookie", "refreshToken=unknown-value");
+
+    expect(response.status).toBe(401);
+    expect(response.body).toMatchObject({ error: { code: "UNAUTHORIZED" } });
+  });
+
+  it("rejects an expired token", async () => {
+    const registered = await registerUser(app);
+
+    await prisma.refreshToken.updateMany({
+      where: { userId: registered.user.id },
+      data: { expiresAt: new Date(Date.now() - 60_000) },
+    });
+
+    const response = await request(app).post("/api/v1/auth/refresh").set("Cookie", registered.cookie);
+
+    expect(response.status).toBe(401);
+    expect(response.body).toMatchObject({ error: { code: "UNAUTHORIZED" } });
+  });
+});
