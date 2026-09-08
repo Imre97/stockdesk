@@ -1,7 +1,12 @@
 import type { Timeframe } from "@stockdesk/shared";
 import { describe, expect, it } from "vitest";
 
-import { bucketStartMs, nextBucketStartMs, previousBucketStartMs } from "./timeframes.js";
+import {
+  bucketStartMs,
+  nextBucketStartMs,
+  previousBucketStartMs,
+  windowStartMs,
+} from "./timeframes.js";
 
 const MS_PER_HOUR = 3_600_000;
 
@@ -15,6 +20,10 @@ function nextOf(start: string, timeframe: Timeframe): string {
 
 function previousOf(start: string, timeframe: Timeframe): string {
   return new Date(previousBucketStartMs(Date.parse(start), timeframe)).toISOString();
+}
+
+function windowOf(until: string, timeframe: Timeframe, buckets: number): string {
+  return new Date(windowStartMs(Date.parse(until), timeframe, buckets)).toISOString();
 }
 
 describe("bucketStartMs", () => {
@@ -82,5 +91,17 @@ describe("nextBucketStartMs and previousBucketStartMs", () => {
   it("steps the UTC-aligned timeframes by their fixed size", () => {
     expect(nextOf("2026-09-08T14:00:00.000Z", "1h")).toBe("2026-09-08T15:00:00.000Z");
     expect(previousOf("2026-09-08T14:30:00.000Z", "15m")).toBe("2026-09-08T14:15:00.000Z");
+  });
+});
+
+describe("windowStartMs", () => {
+  it("steps a calendar window back by whole months, weeks and days", () => {
+    expect(windowOf("2026-03-02T15:00:00.000Z", "1M", 3)).toBe("2025-12-01T05:00:00.000Z");
+    expect(windowOf("2026-09-09T15:00:00.000Z", "1W", 2)).toBe("2026-08-24T04:00:00.000Z");
+    expect(windowOf("2026-11-02T04:30:00.000Z", "1D", 2)).toBe("2026-10-30T04:00:00.000Z");
+  });
+
+  it("steps a UTC-aligned window back by the fixed bucket size", () => {
+    expect(windowOf("2026-09-08T14:32:45.500Z", "15m", 4)).toBe("2026-09-08T13:30:00.000Z");
   });
 });

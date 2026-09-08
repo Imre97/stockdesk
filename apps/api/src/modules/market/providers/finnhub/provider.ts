@@ -4,6 +4,7 @@ import type {
   Bar,
   Capability,
   MarketDataProvider,
+  ProfileOptions,
   Quote,
   SymbolProfile,
   Trade,
@@ -94,7 +95,8 @@ export function createFinnhubProvider(options: FinnhubProviderOptions): MarketDa
 
     listAssets: (): Promise<AssetRecord[]> => fetchFinnhubSymbols(client),
 
-    getProfile: (symbol: string): Promise<SymbolProfile | null> => fetchFinnhubProfile(client, symbol),
+    getProfile: (symbol: string, options?: ProfileOptions): Promise<SymbolProfile | null> =>
+      fetchFinnhubProfile(client, symbol, options?.parts ?? "all"),
 
     getQuote: (): Promise<Quote | null> => Promise.resolve(null),
   };

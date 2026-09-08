@@ -1,7 +1,7 @@
 import { Decimal } from "@stockdesk/shared";
 
 import { parseJsonWithDecimals } from "../decimal-json.js";
-import type { SymbolProfile } from "../types.js";
+import type { ProfilePart, SymbolProfile } from "../types.js";
 import type { FinnhubClient } from "./client.js";
 
 const PROFILE_DECIMAL_KEYS: ReadonlySet<string> = new Set(["marketCapitalization", "shareOutstanding"]);
@@ -63,16 +63,28 @@ async function fetchMetrics(client: FinnhubClient, symbol: string): Promise<Reco
   return payload.metric ?? {};
 }
 
+async function fetchProfile(client: FinnhubClient, symbol: string): Promise<RawProfile> {
+  const text = await client.get("/stock/profile2", { symbol });
+
+  return parseJsonWithDecimals(text, PROFILE_DECIMAL_KEYS) as RawProfile;
+}
+
+/**
+ * Finnhub serves the company profile and the valuation metrics from two endpoints with different
+ * refresh rates, so a caller that only needs the newer half asks for that part and pays one call.
+ */
 export async function fetchFinnhubProfile(
   client: FinnhubClient,
   symbol: string,
+  parts: ProfilePart = "all",
 ): Promise<SymbolProfile | null> {
-  const profileText = await client.get("/stock/profile2", { symbol });
-  const raw = parseJsonWithDecimals(profileText, PROFILE_DECIMAL_KEYS) as RawProfile;
+  const raw = parts === "metrics" ? {} : await fetchProfile(client, symbol);
 
-  if (Object.keys(raw).length === 0) return null;
+  if (parts !== "metrics" && Object.keys(raw).length === 0) return null;
 
-  const metric = await fetchMetrics(client, symbol);
+  const metric = parts === "profile" ? {} : await fetchMetrics(client, symbol);
+
+  if (parts === "metrics" && Object.keys(metric).length === 0) return null;
 
   return {
     symbol,

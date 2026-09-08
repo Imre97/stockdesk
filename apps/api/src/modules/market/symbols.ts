@@ -3,7 +3,7 @@ import { AppError } from "../../lib/errors.js";
 import { ProviderUnavailableError, type CompositeProvider } from "./providers/composite.js";
 import type { SocketTimers } from "./providers/reconnecting-socket.js";
 import { systemTimers } from "./providers/reconnecting-socket.js";
-import type { SymbolProfile } from "./providers/types.js";
+import type { ProfilePart, SymbolProfile } from "./providers/types.js";
 import type { PriceService } from "./price-service.js";
 import { toSymbolDetailDto } from "./symbol-detail.js";
 import * as repository from "./symbols-repository.js";
@@ -56,7 +56,7 @@ export function createSymbolsService(options: SymbolsServiceOptions): SymbolsSer
   const inFlight = new Set<string>();
 
   /** Keeps a slow provider from blocking the symbol page: the caller continues without a profile. */
-  async function fetchProfile(symbol: string): Promise<SymbolProfile | null> {
+  async function fetchProfile(symbol: string, parts: ProfilePart): Promise<SymbolProfile | null> {
     let handle: unknown = null;
 
     const timeout = new Promise<null>((resolve) => {
@@ -67,7 +67,7 @@ export function createSymbolsService(options: SymbolsServiceOptions): SymbolsSer
     });
 
     try {
-      return await Promise.race([composite.getProfile(symbol), timeout]);
+      return await Promise.race([composite.getProfile(symbol, { parts }), timeout]);
     } catch (error) {
       log(`Fetching the profile of ${symbol} failed: ${describe(error)}`);
       return null;
@@ -76,21 +76,26 @@ export function createSymbolsService(options: SymbolsServiceOptions): SymbolsSer
     }
   }
 
-  async function storeProfile(symbolId: string, symbol: string): Promise<void> {
-    const profile = await fetchProfile(symbol);
+  async function storeProfile(symbolId: string, symbol: string, parts: ProfilePart): Promise<void> {
+    const profile = await fetchProfile(symbol, parts);
     const at = now();
 
-    await repository.upsertProfile(symbolId, profile, {
-      profileFetchedAt: at,
-      metricsFetchedAt: at,
-    });
+    await repository.upsertProfile(
+      symbolId,
+      profile,
+      {
+        ...(parts === "metrics" ? {} : { profileFetchedAt: at }),
+        ...(parts === "profile" ? {} : { metricsFetchedAt: at }),
+      },
+      parts,
+    );
   }
 
-  function refreshInBackground(symbolId: string, symbol: string): void {
+  function refreshInBackground(symbolId: string, symbol: string, parts: ProfilePart): void {
     if (inFlight.has(symbol)) return;
 
     inFlight.add(symbol);
-    void storeProfile(symbolId, symbol)
+    void storeProfile(symbolId, symbol, parts)
       .catch((error: unknown) => {
         log(`Refreshing the profile of ${symbol} failed: ${describe(error)}`);
       })
@@ -104,15 +109,17 @@ export function createSymbolsService(options: SymbolsServiceOptions): SymbolsSer
     const at = now();
 
     if (profile === null || profile.profileFetchedAt === null) {
-      await storeProfile(record.id, record.symbol);
+      await storeProfile(record.id, record.symbol, "all");
       return (await repository.findActiveSymbol(record.symbol)) ?? record;
     }
 
-    if (
-      isStale(profile.profileFetchedAt, PROFILE_MAX_AGE_MS, at) ||
-      isStale(profile.metricsFetchedAt, METRICS_MAX_AGE_MS, at)
-    ) {
-      refreshInBackground(record.id, record.symbol);
+    if (isStale(profile.profileFetchedAt, PROFILE_MAX_AGE_MS, at)) {
+      refreshInBackground(record.id, record.symbol, "all");
+      return record;
+    }
+
+    if (isStale(profile.metricsFetchedAt, METRICS_MAX_AGE_MS, at)) {
+      refreshInBackground(record.id, record.symbol, "metrics");
     }
 
     return record;

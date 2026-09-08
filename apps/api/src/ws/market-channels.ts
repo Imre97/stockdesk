@@ -23,7 +23,7 @@ export interface MarketChannelsOptions {
   subscriptions: MarketSubscriptions;
   throttle: QuoteThrottle;
   feed: QuoteFeed;
-  symbolExists: (symbol: string) => Promise<boolean>;
+  activeSymbols: (symbols: string[]) => Promise<string[]>;
   log: (message: string) => void;
 }
 
@@ -58,7 +58,7 @@ function readJson(raw: RawData): unknown {
  * follows it touch the same index, and an unordered pair would leave a stream running forever.
  */
 export function attachMarketChannels(options: MarketChannelsOptions): MarketChannels {
-  const { prices, aggregator, subscriptions, throttle, feed, symbolExists, log } = options;
+  const { prices, aggregator, subscriptions, throttle, feed, activeSymbols, log } = options;
 
   const sockets = new Set<WebSocket>();
   const queues = new WeakMap<WebSocket, Promise<void>>();
@@ -80,18 +80,14 @@ export function attachMarketChannels(options: MarketChannelsOptions): MarketChan
   });
 
   async function knownSymbols(socket: WebSocket, symbols: string[]): Promise<string[]> {
-    const known: string[] = [];
+    const wanted = [...new Set(symbols.map(normalize))];
+    const active = new Set(await activeSymbols(wanted));
 
-    for (const symbol of new Set(symbols.map(normalize))) {
-      if (await symbolExists(symbol)) {
-        known.push(symbol);
-        continue;
-      }
-
-      send(socket, symbolNotFoundMessage(symbol));
+    for (const symbol of wanted) {
+      if (!active.has(symbol)) send(socket, symbolNotFoundMessage(symbol));
     }
 
-    return known;
+    return wanted.filter((symbol) => active.has(symbol));
   }
 
   async function subscribeQuotes(socket: WebSocket, symbols: string[]): Promise<void> {

@@ -62,7 +62,7 @@ export interface BarAggregator {
   sweep: (now: Date) => Promise<void>;
   flush: () => Promise<void>;
   start: () => void;
-  stop: () => void;
+  stop: () => Promise<void>;
 }
 
 interface FormingBar {
@@ -262,12 +262,15 @@ export function createBarAggregator(options: BarAggregatorOptions): BarAggregato
       scheduleSweep();
     },
 
-    stop(): void {
+    async stop(): Promise<void> {
       running = false;
-      if (sweepHandle === null) return;
 
-      timers.clearTimeout(sweepHandle);
-      sweepHandle = null;
+      if (sweepHandle !== null) {
+        timers.clearTimeout(sweepHandle);
+        sweepHandle = null;
+      }
+
+      await writer.flush();
     },
   };
 }

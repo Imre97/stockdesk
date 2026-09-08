@@ -4,8 +4,6 @@ import { fromNyWallClock, nyDay, shiftDay } from "../../lib/ny-clock.js";
 
 const MS_PER_MINUTE = 60_000;
 const MS_PER_HOUR = 60 * MS_PER_MINUTE;
-const MS_PER_DAY = 24 * MS_PER_HOUR;
-const MS_PER_WEEK = 7 * MS_PER_DAY;
 const DAYS_PER_WEEK = 7;
 const DAY_START_TIME = "00:00:00";
 const NOON_UTC = "12:00:00.000Z";
@@ -18,16 +16,6 @@ const CALENDAR_TIMEFRAMES = ["1D", "1W", "1M"] as const;
 
 type CalendarTimeframe = (typeof CALENDAR_TIMEFRAMES)[number];
 type FixedTimeframe = Exclude<Timeframe, CalendarTimeframe>;
-
-const DURATIONS: Record<Timeframe, number> = {
-  "1m": MS_PER_MINUTE,
-  "5m": 5 * MS_PER_MINUTE,
-  "15m": 15 * MS_PER_MINUTE,
-  "1h": MS_PER_HOUR,
-  "1D": MS_PER_DAY,
-  "1W": MS_PER_WEEK,
-  "1M": 31 * MS_PER_DAY,
-};
 
 const FIXED_SIZES: Record<FixedTimeframe, number> = {
   "1m": MS_PER_MINUTE,
@@ -78,10 +66,6 @@ function nyDayOf(timeMs: number): string {
   return nyDay(new Date(timeMs));
 }
 
-export function timeframeDurationMs(timeframe: Timeframe): number {
-  return DURATIONS[timeframe];
-}
-
 function floorTo(timeMs: number, sizeMs: number): number {
   return BUCKET_EPOCH_MS + Math.floor((timeMs - BUCKET_EPOCH_MS) / sizeMs) * sizeMs;
 }
@@ -107,6 +91,16 @@ export function nextBucketStartMs(startMs: number, timeframe: Timeframe): number
   }
 
   return startMs + FIXED_SIZES[timeframe];
+}
+
+export function windowStartMs(untilMs: number, timeframe: Timeframe, buckets: number): number {
+  if (isCalendarTimeframe(timeframe)) {
+    return nyDayStartMs(CALENDAR[timeframe].step(nyDayOf(untilMs), -buckets));
+  }
+
+  const size = FIXED_SIZES[timeframe];
+
+  return floorTo(untilMs, size) - size * buckets;
 }
 
 export function previousBucketStartMs(startMs: number, timeframe: Timeframe): number {

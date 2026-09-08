@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   BAR_SUBSCRIPTION_LIMIT,
+  QUOTE_MESSAGE_SYMBOL_CAP,
   QUOTE_SUBSCRIPTION_LIMIT,
   barMessageSchema,
   clientMessageSchema,
@@ -52,6 +53,10 @@ describe("subscription limits", () => {
     expect(QUOTE_SUBSCRIPTION_LIMIT).toBe(50);
     expect(BAR_SUBSCRIPTION_LIMIT).toBe(5);
   });
+
+  it("caps a single quote message at twice the per-socket limit", () => {
+    expect(QUOTE_MESSAGE_SYMBOL_CAP).toBe(QUOTE_SUBSCRIPTION_LIMIT * 2);
+  });
 });
 
 describe("quote subscription messages", () => {
@@ -63,7 +68,16 @@ describe("quote subscription messages", () => {
   });
 
   it("accepts the maximum number of symbols", () => {
-    const symbols = Array.from({ length: QUOTE_SUBSCRIPTION_LIMIT }, (_value, index) => `SYM${index}`);
+    const symbols = Array.from({ length: QUOTE_MESSAGE_SYMBOL_CAP }, (_value, index) => `SYM${index}`);
+
+    expect(subscribeQuotesMessageSchema.safeParse({ ...SUBSCRIBE_QUOTES, symbols }).success).toBe(true);
+  });
+
+  it("accepts more symbols than the per-socket limit so the socket can refuse the overflow", () => {
+    const symbols = Array.from(
+      { length: QUOTE_SUBSCRIPTION_LIMIT + 1 },
+      (_value, index) => `SYM${index}`,
+    );
 
     expect(subscribeQuotesMessageSchema.safeParse({ ...SUBSCRIBE_QUOTES, symbols }).success).toBe(true);
   });
@@ -77,8 +91,11 @@ describe("quote subscription messages", () => {
     expect(subscribeQuotesMessageSchema.safeParse(input).success).toBe(false);
   });
 
-  it("rejects more symbols than the per-socket limit", () => {
-    const symbols = Array.from({ length: QUOTE_SUBSCRIPTION_LIMIT + 1 }, (_value, index) => `SYM${index}`);
+  it("rejects more symbols than the message cap", () => {
+    const symbols = Array.from(
+      { length: QUOTE_MESSAGE_SYMBOL_CAP + 1 },
+      (_value, index) => `SYM${index}`,
+    );
 
     expect(subscribeQuotesMessageSchema.safeParse({ ...SUBSCRIBE_QUOTES, symbols }).success).toBe(false);
   });

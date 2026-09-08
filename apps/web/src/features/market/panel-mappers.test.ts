@@ -33,7 +33,7 @@ const BASE: SymbolDetailDto = {
     week52High: "299.2900",
     week52Low: "138.8000",
     beta: "2.05",
-    dividendYield: "1.25",
+    dividendYield: "0.0130",
   },
 };
 
@@ -93,7 +93,19 @@ describe("toKeyStatRows", () => {
     expect(rowValue(rows, "stats.volume")).toBe("51.23M");
     expect(rowValue(rows, "stats.marketCap")).toBe("800B");
     expect(rowValue(rows, "stats.week52Range")).toBe("$138.80 – $299.29");
-    expect(rowValue(rows, "stats.dividendYield")).toBe("1.25%");
+    expect(rowValue(rows, "stats.dividendYield")).toBe("1.30%");
+  });
+
+  it("renders the yield fraction with the Hungarian locale", () => {
+    const rows = toKeyStatRows(symbolDetailSchema.parse(BASE), "hu-HU");
+
+    expect(rowValue(rows, "stats.dividendYield")).toBe(
+      new Intl.NumberFormat("hu-HU", {
+        style: "percent",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(0.013),
+    );
   });
 
   it("leaves every value null when the quote and the stats are missing", () => {

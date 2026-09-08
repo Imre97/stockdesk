@@ -7,6 +7,7 @@ import {
   formatChangePercent,
   formatPrice,
   formatSessionTime,
+  formatYield,
   toCandlestickData,
   toChartBar,
   toLineData,
@@ -163,6 +164,20 @@ describe("format helpers", () => {
 
   it("formats a percentage change", () => {
     expect(formatChangePercent(new Decimal("0.98"), "en-US")).toBe("0.98%");
+  });
+
+  it("renders a dividend yield fraction as a percentage", () => {
+    expect(formatYield(new Decimal("0.0130"), "en-US")).toBe("1.30%");
+  });
+
+  it("renders a dividend yield fraction with the Hungarian locale", () => {
+    expect(formatYield(new Decimal("0.0130"), "hu-HU")).toBe(
+      new Intl.NumberFormat("hu-HU", {
+        style: "percent",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(0.013),
+    );
   });
 
   it("formats a session time in the active locale", () => {

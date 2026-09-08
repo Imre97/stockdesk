@@ -133,6 +133,10 @@ export function formatChangePercent(value: DecimalValue, locale: string): string
   return formatPercent(value, locale);
 }
 
+export function formatYield(value: DecimalValue, locale: string): string {
+  return formatPercent(value.times(PERCENT_FACTOR), locale);
+}
+
 export function formatSessionTime(at: string | Date, locale: string): string {
   return new Intl.DateTimeFormat(locale, { timeStyle: "short" }).format(new Date(at));
 }

@@ -4,6 +4,7 @@ import type {
   BarsQuery,
   Capability,
   MarketDataProvider,
+  ProfileOptions,
   Quote,
   SymbolProfile,
   TradeHandler,
@@ -174,12 +175,12 @@ export function createCompositeProvider({ providers, log }: CompositeProviderOpt
       return result.value;
     },
 
-    async getProfile(symbol: string): Promise<SymbolProfile | null> {
+    async getProfile(symbol: string, options?: ProfileOptions): Promise<SymbolProfile | null> {
       const candidates = capableProviders("profile", symbol);
       let served = candidates.length === 0;
       for (const provider of candidates) {
         const result = await attempt<SymbolProfile | null>(provider, "profile", symbol, (target) =>
-          target.getProfile(symbol),
+          target.getProfile(symbol, options),
         );
         if (!result.ok) continue;
         served = true;

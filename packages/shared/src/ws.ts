@@ -11,10 +11,11 @@ import {
 
 export const QUOTE_SUBSCRIPTION_LIMIT = 50;
 export const BAR_SUBSCRIPTION_LIMIT = 5;
+export const QUOTE_MESSAGE_SYMBOL_CAP = QUOTE_SUBSCRIPTION_LIMIT * 2;
 
 const quotesChannelShape = {
   channel: z.literal("quotes"),
-  symbols: z.array(symbolSchema).min(1).max(QUOTE_SUBSCRIPTION_LIMIT),
+  symbols: z.array(symbolSchema).min(1).max(QUOTE_MESSAGE_SYMBOL_CAP),
 };
 
 const barsChannelShape = {

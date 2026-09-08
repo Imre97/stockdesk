@@ -7,6 +7,7 @@ import { useDebouncedValue } from "../../lib/use-debounced-value";
 import { useCurrentUserId } from "../auth/hooks";
 import { useSettingsLocale } from "../settings/hooks";
 import * as api from "./api";
+import { acquireBars } from "./bars-consumers";
 import {
   toChartBar,
   toMarketStatusBadge,
@@ -151,6 +152,8 @@ export function useBars(symbol: string, timeframe: Timeframe): BarsView {
   }, [firstPage, setBars, timeframe, upper]);
 
   useEffect(() => subscribeBars(upper, timeframe), [timeframe, upper]);
+
+  useEffect(() => acquireBars(upper, timeframe), [timeframe, upper]);
 
   const bars = series ?? EMPTY_BARS;
   const oldest = bars[0];

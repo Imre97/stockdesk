@@ -69,6 +69,12 @@ export interface SymbolProfile {
   ipoDate: Date | null;
 }
 
+export type ProfilePart = "profile" | "metrics" | "all";
+
+export interface ProfileOptions {
+  parts: ProfilePart;
+}
+
 export type TradeHandler = (trade: Trade) => void;
 
 export interface MarketDataProvider {
@@ -81,6 +87,6 @@ export interface MarketDataProvider {
   onTrade(handler: TradeHandler): () => void;
   getBars(query: BarsQuery): Promise<Bar[]>;
   listAssets(): Promise<AssetRecord[]>;
-  getProfile(symbol: string): Promise<SymbolProfile | null>;
+  getProfile(symbol: string, options?: ProfileOptions): Promise<SymbolProfile | null>;
   getQuote(symbol: string): Promise<Quote | null>;
 }

@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { toApiString, type Decimal } from "@stockdesk/shared";
 import { prisma } from "../../lib/prisma.js";
-import type { AssetRecord, SymbolProfile } from "./providers/types.js";
+import type { AssetRecord, ProfilePart, SymbolProfile } from "./providers/types.js";
 
 const BATCH_SIZE = 500;
 const PRICE_PLACES = 8;
@@ -187,6 +187,17 @@ export async function findActiveSymbol(symbol: string): Promise<SymbolWithProfil
   });
 }
 
+export async function findActiveSymbols(symbols: string[]): Promise<string[]> {
+  if (symbols.length === 0) return [];
+
+  const rows = await prisma.symbol.findMany({
+    where: { symbol: { in: symbols }, isActive: true },
+    select: { symbol: true },
+  });
+
+  return rows.map((row) => row.symbol);
+}
+
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (match) => `\\${match}`);
 }
@@ -219,25 +230,39 @@ function price(value: Decimal | null): string | null {
   return value === null ? null : toApiString(value, PRICE_PLACES);
 }
 
-export async function upsertProfile(
-  symbolId: string,
-  profile: SymbolProfile | null,
-  stamps: ProfileStamps,
-): Promise<void> {
-  const values = {
+function profileColumns(profile: SymbolProfile | null): Record<string, unknown> {
+  return {
     industry: profile?.industry ?? null,
-    marketCap: profile?.marketCap === undefined || profile.marketCap === null
-      ? null
-      : toApiString(profile.marketCap, MARKET_CAP_PLACES),
+    marketCap:
+      profile?.marketCap === undefined || profile.marketCap === null
+        ? null
+        : toApiString(profile.marketCap, MARKET_CAP_PLACES),
     sharesOutstanding: price(profile?.sharesOutstanding ?? null),
+    logoUrl: profile?.logoUrl ?? null,
+    websiteUrl: profile?.websiteUrl ?? null,
+    ipoDate: profile?.ipoDate ?? null,
+  };
+}
+
+function metricColumns(profile: SymbolProfile | null): Record<string, unknown> {
+  return {
     peRatio: price(profile?.peRatio ?? null),
     week52High: price(profile?.week52High ?? null),
     week52Low: price(profile?.week52Low ?? null),
     beta: price(profile?.beta ?? null),
     dividendYield: price(profile?.dividendYield ?? null),
-    logoUrl: profile?.logoUrl ?? null,
-    websiteUrl: profile?.websiteUrl ?? null,
-    ipoDate: profile?.ipoDate ?? null,
+  };
+}
+
+export async function upsertProfile(
+  symbolId: string,
+  profile: SymbolProfile | null,
+  stamps: ProfileStamps,
+  parts: ProfilePart = "all",
+): Promise<void> {
+  const values = {
+    ...(parts === "metrics" ? {} : profileColumns(profile)),
+    ...(parts === "profile" ? {} : metricColumns(profile)),
     ...(stamps.profileFetchedAt === undefined ? {} : { profileFetchedAt: stamps.profileFetchedAt }),
     ...(stamps.metricsFetchedAt === undefined ? {} : { metricsFetchedAt: stamps.metricsFetchedAt }),
   };

@@ -3,7 +3,7 @@ import type { QuoteMessage } from "@stockdesk/shared";
 import type { WebSocket, WebSocketServer } from "ws";
 import type { AppConfig } from "../lib/config.js";
 import type { MarketRuntime } from "../modules/market/runtime.js";
-import { findActiveSymbol } from "../modules/market/symbols-repository.js";
+import { findActiveSymbols } from "../modules/market/symbols-repository.js";
 import { attachWebSocketServer } from "./auth-handshake.js";
 import type { HeartbeatTimers } from "./heartbeat.js";
 import { attachMarketChannels } from "./market-channels.js";
@@ -29,10 +29,6 @@ export interface MarketGateway {
   stop: () => void;
 }
 
-async function symbolExists(symbol: string): Promise<boolean> {
-  return (await findActiveSymbol(symbol)) !== null;
-}
-
 export function createMarketGateway(options: MarketGatewayOptions): MarketGateway {
   const { config, runtime, registry, log } = options;
   const subscriptions = createMarketSubscriptions();
@@ -53,7 +49,7 @@ export function createMarketGateway(options: MarketGatewayOptions): MarketGatewa
     subscriptions,
     throttle,
     feed,
-    symbolExists,
+    activeSymbols: findActiveSymbols,
     log,
   });
 

@@ -80,6 +80,12 @@ describe("KeyStats", () => {
     expect(screen.getAllByText(i18n.t("market:stats.missing"))).toHaveLength(9);
   });
 
+  it("renders the dividend yield fraction as a percentage", () => {
+    renderStats({ ...BASE, stats: { ...BASE.stats, dividendYield: "0.0130" } });
+
+    expect(screen.getByText("1.30%")).toBeInTheDocument();
+  });
+
   it("renders the missing marker only for the dividend yield of a complete symbol", () => {
     renderStats(BASE);
 

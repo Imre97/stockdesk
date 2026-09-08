@@ -53,6 +53,28 @@ describe("fetchFinnhubProfile", () => {
     expect(metricUrl.searchParams.get("metric")).toBe("all");
   });
 
+  it("requests only the metric endpoint for a metrics refresh", async () => {
+    const harness = createFakeFetch([readFixture("metric.json")]);
+
+    const profile = await fetchFinnhubProfile(createClient(harness.fetchImpl), "TSLA", "metrics");
+
+    expect(harness.urls).toHaveLength(1);
+    expect(new URL(harness.urls[0] ?? "").pathname).toBe("/api/v1/stock/metric");
+    expect(profile?.beta).not.toBeNull();
+    expect(profile?.industry).toBeNull();
+  });
+
+  it("requests only the profile endpoint for a profile refresh", async () => {
+    const harness = createFakeFetch([readFixture("profile2.json")]);
+
+    const profile = await fetchFinnhubProfile(createClient(harness.fetchImpl), "TSLA", "profile");
+
+    expect(harness.urls).toHaveLength(1);
+    expect(new URL(harness.urls[0] ?? "").pathname).toBe("/api/v1/stock/profile2");
+    expect(profile?.industry).not.toBeNull();
+    expect(profile?.beta).toBeNull();
+  });
+
   it("converts the market cap from millions to full US dollars", async () => {
     const harness = createFakeFetch([readFixture("profile2.json"), readFixture("metric.json")]);
 

@@ -1,7 +1,5 @@
 import type {
   AssetRecord,
-  Bar,
-  BarsQuery,
   Capability,
   MarketDataProvider,
   ProviderName,
@@ -13,7 +11,8 @@ import type {
 export interface FakeProviderOptions {
   name: ProviderName;
   capabilities: Capability[];
-  getBars?: (query: BarsQuery) => Promise<Bar[]>;
+  getBars?: MarketDataProvider["getBars"];
+  getProfile?: MarketDataProvider["getProfile"];
 }
 
 export function createFakeProvider(options: FakeProviderOptions): MarketDataProvider {
@@ -31,7 +30,7 @@ export function createFakeProvider(options: FakeProviderOptions): MarketDataProv
     onTrade: (_handler: TradeHandler) => (): void => undefined,
     getBars: options.getBars ?? failing,
     listAssets: async (): Promise<AssetRecord[]> => failing(),
-    getProfile: async (): Promise<SymbolProfile | null> => failing(),
+    getProfile: options.getProfile ?? (async (): Promise<SymbolProfile | null> => failing()),
     getQuote: async (): Promise<Quote | null> => failing(),
   };
 }

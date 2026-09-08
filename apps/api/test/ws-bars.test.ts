@@ -9,7 +9,7 @@ import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "../src/lib/prisma.js";
 import { truncateAll } from "./db.js";
-import { authHeader, registerUser } from "./helpers.js";
+import { authHeader, expectNoMonetaryNumbers, registerUser } from "./helpers.js";
 import {
   connectMarketSocket,
   createTestMarketServer,
@@ -30,6 +30,12 @@ const clients: TestSocket[] = [];
 
 function isBar(message: ServerMessage): boolean {
   return message.type === "bar";
+}
+
+function validate(message: ServerMessage): ReturnType<typeof barMessageSchema.parse> {
+  expectNoMonetaryNumbers(message);
+
+  return barMessageSchema.parse(message);
 }
 
 function firstTrade(trades: { price: Decimal }[]): { price: Decimal } {
@@ -84,7 +90,7 @@ describe("bars channel", () => {
     await subscribeBars(server, client, "1m");
 
     const ticked = firstTrade(server.provider.emitTick());
-    const forming = barMessageSchema.parse(await client.next(isBar));
+    const forming = validate(await client.next(isBar));
 
     expect(forming.isFinal).toBe(false);
     expect(forming.timeframe).toBe("1m");
@@ -94,7 +100,7 @@ describe("bars channel", () => {
     server.setNow(NEXT_MINUTE);
     await server.sweep();
 
-    const closed = barMessageSchema.parse(await client.next((message) => message.type === "bar"));
+    const closed = validate(await client.next((message) => message.type === "bar"));
 
     expect(closed.isFinal).toBe(true);
     expect(closed.bar.time).toBe(FIRST_BUCKET);
@@ -109,7 +115,7 @@ describe("bars channel", () => {
     server.provider.emitTick();
     await server.flush();
 
-    const opened = barMessageSchema.parse(await client.next(isBar));
+    const opened = validate(await client.next(isBar));
 
     expect(opened.isFinal).toBe(false);
     expect(opened.bar.time).toBe(SECOND_BUCKET);
@@ -126,7 +132,7 @@ describe("bars channel", () => {
     await subscribeBars(server, client, "5m");
     server.provider.emitTick();
 
-    const forming = barMessageSchema.parse(await client.next(isBar));
+    const forming = validate(await client.next(isBar));
 
     expect(forming.timeframe).toBe("5m");
   });

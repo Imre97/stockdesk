@@ -3,11 +3,11 @@ import { formatQuantity, type DecimalValue, type SymbolDetail, type Trade, type 
 import { pnlTone, type PnlTone } from "../accounts/mappers";
 import {
   formatChange,
-  formatChangePercent,
   formatCompactNumber,
   formatPrice,
   formatRatio,
   formatTimestamp,
+  formatYield,
 } from "./mappers";
 
 const RANGE_SEPARATOR = " – ";
@@ -59,7 +59,7 @@ export function toKeyStatRows(detail: SymbolDetail, locale: string): KeyStatRow[
     { labelKey: "stats.peRatio", value: text(stats.peRatio, locale, formatRatio) },
     { labelKey: "stats.week52Range", value: range(stats.week52Low, stats.week52High, locale) },
     { labelKey: "stats.beta", value: text(stats.beta, locale, formatRatio) },
-    { labelKey: "stats.dividendYield", value: text(stats.dividendYield, locale, formatChangePercent) },
+    { labelKey: "stats.dividendYield", value: text(stats.dividendYield, locale, formatYield) },
   ];
 }
 

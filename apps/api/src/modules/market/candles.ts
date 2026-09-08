@@ -5,7 +5,7 @@ import type { CandleRow, CoverageRow } from "./candles-repository.js";
 import { findActiveSymbol } from "./symbols-repository.js";
 import { ProviderUnavailableError, type CompositeProvider } from "./providers/composite.js";
 import type { Bar } from "./providers/types.js";
-import { timeframeDurationMs } from "./timeframes.js";
+import { nextBucketStartMs, windowStartMs } from "./timeframes.js";
 
 const PRICE_PLACES = 4;
 const VOLUME_PLACES = 0;
@@ -96,8 +96,9 @@ export function createCandleCache({ composite, now, log }: CandleCacheOptions): 
     }
 
     const currentTime = now().getTime();
-    const duration = timeframeDurationMs(timeframe);
-    const complete = fetched.filter((bar) => bar.time.getTime() + duration <= currentTime);
+    const complete = fetched.filter(
+      (bar) => nextBucketStartMs(bar.time.getTime(), timeframe) <= currentTime,
+    );
 
     await candlesRepository.insertFinalBars(
       complete.map((bar) => ({
@@ -131,7 +132,7 @@ export function createCandleCache({ composite, now, log }: CandleCacheOptions): 
       if (record === null) throw symbolNotFound(symbol);
 
       const until = end ?? now();
-      const lowerBound = new Date(until.getTime() - timeframeDurationMs(timeframe) * limit);
+      const lowerBound = new Date(windowStartMs(until.getTime(), timeframe, limit));
 
       const cached = await candlesRepository.listBarsBefore(record.id, timeframe, until, limit);
       const coverage = await candlesRepository.listCoverage(record.id, timeframe);

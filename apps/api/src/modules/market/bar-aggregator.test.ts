@@ -267,3 +267,50 @@ describe("bar aggregator", () => {
     expect(harness.timers.pending()).toBe(0);
   });
 });
+
+describe("bar aggregator stop", () => {
+  it("waits for every in-flight persistence before it resolves", async () => {
+    const handlers = new Set<TradeHandler>();
+    const forming: CandleInput[] = [];
+    const releases: (() => void)[] = [];
+    const aggregator = createBarAggregator({
+      priceService: {
+        onTrade: (handler: TradeHandler) => {
+          handlers.add(handler);
+          return () => {
+            handlers.delete(handler);
+          };
+        },
+      },
+      candles: {
+        saveFormingBar: async (bar: CandleInput) => {
+          await new Promise<void>((resolve) => {
+            releases.push(resolve);
+          });
+          forming.push(bar);
+        },
+        finalizeBar: async () => undefined,
+      },
+      symbols: async () => SYMBOL_ID,
+      now: () => new Date(FIRST_MINUTE),
+      log: () => undefined,
+      timers: manualTimers(),
+      persistIntervalMs: PERSIST_INTERVAL_MS,
+    });
+
+    for (const handler of handlers) handler(trade("2026-09-08T18:00:10.000Z", "100", "5"));
+
+    let settled = false;
+    const stopped = Promise.resolve(aggregator.stop()).then(() => {
+      settled = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(settled).toBe(false);
+
+    for (const release of releases) release();
+    await stopped;
+
+    expect(forming).toHaveLength(2);
+  });
+});

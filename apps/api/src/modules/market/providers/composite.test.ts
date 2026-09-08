@@ -277,6 +277,34 @@ describe("composite provider", () => {
     expect(seen.map((trade) => trade.symbol)).toEqual(["TSLA", "AAPL"]);
   });
 
+  it("never streams simulated ticks for a symbol a real provider already served", async () => {
+    const alpacaSubscribe = vi.fn(async () => {
+      throw new Error("stream refused");
+    });
+    const alpaca = createFakeProvider({
+      name: "alpaca",
+      capabilities: ["stream", "bars"],
+      getBars: async (query) => [bar(query.symbol, "250")],
+      subscribeTrades: alpacaSubscribe,
+    });
+    const simulatedSubscribe = vi.fn(async () => undefined);
+    const simulated = createFakeProvider({
+      name: "simulated",
+      capabilities: ["stream", "bars"],
+      subscribeTrades: simulatedSubscribe,
+    });
+    const log = vi.fn();
+    const composite = createCompositeProvider({ providers: [alpaca, simulated], log });
+
+    await composite.getBars(QUERY);
+
+    await expect(composite.subscribeTrades(["TSLA"])).rejects.toBeInstanceOf(ProviderUnavailableError);
+
+    expect(alpacaSubscribe).toHaveBeenCalledTimes(2);
+    expect(simulatedSubscribe).not.toHaveBeenCalled();
+    expect(at(at(log.mock.calls, 0), 0)).toContain("stream refused");
+  });
+
   it("unsubscribes on every stream provider and survives a failure", async () => {
     const failing = createFakeProvider({ name: "alpaca", capabilities: ["stream"] });
     failing.unsubscribeTrades = async () => {

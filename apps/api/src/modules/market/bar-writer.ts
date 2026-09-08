@@ -22,14 +22,21 @@ function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function seriesKeyOf(symbol: string, bar: PendingBar): string {
+  return `${symbol}:${bar.timeframe}:${bar.time.getTime()}`;
+}
+
 /**
  * Writes are started from the synchronous trade path and never awaited there, so every one of them
- * is registered here: `flush` lets the sweep and the tests wait for the database to catch up.
+ * is registered here: `flush` lets the sweep and the tests wait for the database to catch up. The
+ * writes of one bucket are chained, because a `finalizeBar` that overtakes an earlier
+ * `saveFormingBar` would leave a closed bucket marked as still forming.
  */
 export function createBarWriter(options: BarWriterOptions): BarWriter {
   const { candles, symbols, log } = options;
   const symbolIds = new Map<string, string | null>();
   const inFlight = new Set<Promise<void>>();
+  const chains = new Map<string, Promise<void>>();
 
   async function symbolIdOf(symbol: string): Promise<string | null> {
     const known = symbolIds.get(symbol);
@@ -57,13 +64,19 @@ export function createBarWriter(options: BarWriterOptions): BarWriter {
 
   return {
     save(symbol: string, bar: PendingBar, isFinal: boolean): void {
-      const guarded = write(symbol, bar, isFinal).catch((error: unknown) => {
-        log(`Persisting a live ${bar.timeframe} bar of ${symbol} failed: ${describe(error)}`);
-      });
+      const key = seriesKeyOf(symbol, bar);
+      const previous = chains.get(key) ?? Promise.resolve();
+      const guarded = previous
+        .then(async () => await write(symbol, bar, isFinal))
+        .catch((error: unknown) => {
+          log(`Persisting a live ${bar.timeframe} bar of ${symbol} failed: ${describe(error)}`);
+        });
 
+      chains.set(key, guarded);
       inFlight.add(guarded);
       void guarded.finally(() => {
         inFlight.delete(guarded);
+        if (chains.get(key) === guarded) chains.delete(key);
       });
     },
 

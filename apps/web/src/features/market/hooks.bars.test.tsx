@@ -16,7 +16,7 @@ vi.mock("./api", () => api);
 
 import { useAuthStore } from "../auth/store";
 import { useBars, useSymbolTrades } from "./hooks";
-import { useMarketStore } from "./store";
+import { barsKey, useMarketStore } from "./store";
 
 const USER = {
   id: "user-1",
@@ -110,6 +110,35 @@ describe("useBars", () => {
     expect(result.current.hasMore).toBe(false);
 
     unmount();
+  });
+
+  it("drops the series from the store when the last consumer unmounts", async () => {
+    const { result, unmount } = renderHook(() => useBars("TSLA", "1m"), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.bars).toHaveLength(1);
+    });
+
+    unmount();
+
+    expect(useMarketStore.getState().bars[barsKey("TSLA", "1m")]).toBeUndefined();
+  });
+
+  it("keeps the series while a second consumer of the same pair stays mounted", async () => {
+    const first = renderHook(() => useBars("TSLA", "1m"), { wrapper });
+    const second = renderHook(() => useBars("TSLA", "1m"), { wrapper });
+
+    await waitFor(() => {
+      expect(second.result.current.bars).toHaveLength(1);
+    });
+
+    first.unmount();
+
+    expect(useMarketStore.getState().bars[barsKey("TSLA", "1m")]).toHaveLength(1);
+
+    second.unmount();
+
+    expect(useMarketStore.getState().bars[barsKey("TSLA", "1m")]).toBeUndefined();
   });
 });
 

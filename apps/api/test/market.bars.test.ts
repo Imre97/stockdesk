@@ -1,9 +1,9 @@
-import type { BarDto, BarsResponseDto } from "@stockdesk/shared";
+import { barsResponseDtoSchema, type BarDto, type BarsResponseDto } from "@stockdesk/shared";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "../src/lib/prisma.js";
 import { truncateAll } from "./db.js";
-import { authHeader, firstOf, registerUser } from "./helpers.js";
+import { authHeader, expectNoMonetaryNumbers, firstOf, registerUser } from "./helpers.js";
 import { createTestMarket, seedSymbols } from "./market-helpers.js";
 
 const DEFAULT_PAGE = 300;
@@ -14,6 +14,13 @@ const app = market.app;
 
 function page(response: request.Response): BarsResponseDto {
   return response.body as BarsResponseDto;
+}
+
+function validate(response: request.Response): BarsResponseDto {
+  expectNoMonetaryNumbers(response.body);
+  expect(barsResponseDtoSchema.safeParse(response.body).success).toBe(true);
+
+  return page(response);
 }
 
 async function fetchBars(token: string, query: string): Promise<request.Response> {
@@ -38,7 +45,7 @@ describe("GET /api/v1/market/symbols/:symbol/bars", () => {
 
     expect(response.status).toBe(200);
 
-    const body = page(response);
+    const body = validate(response);
     expect(body.symbol).toBe("TSLA");
     expect(body.timeframe).toBe("1m");
     expect(body.bars).toHaveLength(DEFAULT_PAGE);
@@ -74,7 +81,7 @@ describe("GET /api/v1/market/symbols/:symbol/bars", () => {
 
     expect(previous.status).toBe(200);
 
-    const body = page(previous);
+    const body = validate(previous);
     const last = firstOf(body.bars.slice(-1), "bar");
     expect(Date.parse(last.time)).toBeLessThan(Date.parse(oldest.time));
     expect(body.hasMore).toBe(true);
