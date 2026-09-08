@@ -81,11 +81,8 @@ export async function createRefreshToken(input: RefreshTokenInput): Promise<void
   await prisma.refreshToken.create({ data: input });
 }
 
-export async function revokeRefreshToken(tokenHash: string): Promise<void> {
-  await prisma.refreshToken.updateMany({
-    where: { tokenHash, revokedAt: null },
-    data: { revokedAt: new Date() },
-  });
+export async function deleteRefreshToken(tokenHash: string): Promise<void> {
+  await prisma.refreshToken.deleteMany({ where: { tokenHash } });
 }
 
 export async function deleteExpiredRefreshTokens(now: Date = new Date()): Promise<number> {

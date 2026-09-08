@@ -116,7 +116,7 @@ export function createAuthService(config: AppConfig): AuthService {
     async logout(presentedToken: string | undefined): Promise<void> {
       if (presentedToken === undefined) return;
 
-      await repository.revokeRefreshToken(hashRefreshToken(presentedToken));
+      await repository.deleteRefreshToken(hashRefreshToken(presentedToken));
     },
 
     async currentUser(userId: string): Promise<User> {

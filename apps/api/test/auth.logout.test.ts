@@ -2,7 +2,7 @@ import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { truncateAll } from "./db.js";
-import { findRefreshCookieHeader, registerUser } from "./helpers.js";
+import { DEFAULT_PASSWORD, extractRefreshCookie, findRefreshCookieHeader, registerUser } from "./helpers.js";
 
 const app = createApp({ rateLimit: { enabled: false } });
 
@@ -31,6 +31,33 @@ describe("POST /api/v1/auth/logout", () => {
 
     const refresh = await request(app).post("/api/v1/auth/refresh").set("Cookie", registered.cookie);
     expect(refresh.status).toBe(401);
+    expect(refresh.body).toMatchObject({ error: { code: "UNAUTHORIZED" } });
+  });
+
+  it("leaves the other sessions of the same user untouched", async () => {
+    const registered = await registerUser(app);
+    const cookieA = registered.cookie;
+
+    const secondLogin = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: registered.user.email, password: DEFAULT_PASSWORD });
+    expect(secondLogin.status).toBe(200);
+    const cookieB = extractRefreshCookie(secondLogin);
+    expect(cookieB).not.toBe(cookieA);
+
+    const loggedOut = await request(app).post("/api/v1/auth/logout").set("Cookie", cookieA);
+    expect(loggedOut.status).toBe(204);
+
+    const refreshB = await request(app).post("/api/v1/auth/refresh").set("Cookie", cookieB);
+    expect(refreshB.status).toBe(200);
+    const rotatedB = extractRefreshCookie(refreshB);
+
+    const retryA = await request(app).post("/api/v1/auth/refresh").set("Cookie", cookieA);
+    expect(retryA.status).toBe(401);
+    expect(retryA.body).toMatchObject({ error: { code: "UNAUTHORIZED" } });
+
+    const refreshRotatedB = await request(app).post("/api/v1/auth/refresh").set("Cookie", rotatedB);
+    expect(refreshRotatedB.status).toBe(200);
   });
 
   it("succeeds without a cookie", async () => {

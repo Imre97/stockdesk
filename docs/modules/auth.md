@@ -47,7 +47,7 @@ Base path: `/api/v1/auth`
 | POST | `/register` | `{ email, password, displayName }` | `201 { user, accessToken }` + refresh cookie | Email normalized to lowercase. Password at least 8 characters. `409 EMAIL_TAKEN` on duplicate. |
 | POST | `/login` | `{ email, password }` | `200 { user, accessToken }` + refresh cookie | `401 INVALID_CREDENTIALS` for both unknown email and wrong password; identical response shape and timing-safe comparison to avoid user enumeration. |
 | POST | `/refresh` | none, refresh cookie | `200 { accessToken }` + new refresh cookie | Rotation: current token revoked, new one issued. Presenting an already revoked token revokes every token of that user and returns `401 REFRESH_REUSED`. Missing or expired cookie: `401 UNAUTHORIZED`. |
-| POST | `/logout` | none, refresh cookie | `204` | Revokes the presented refresh token and clears the cookie. Idempotent. |
+| POST | `/logout` | none, refresh cookie | `204` | Deletes the presented refresh token row and clears the cookie. Other sessions of the same user stay live, and a later refresh with the logged-out cookie takes the unknown-token path (`401 UNAUTHORIZED`), not reuse detection. Idempotent. |
 | GET | `/me` | none, `Authorization: Bearer` | `200 { user }` | Protected. |
 
 ### `user` shape
@@ -66,6 +66,8 @@ Balances are not part of the user shape; they come from `GET /api/v1/accounts` (
 ### Error codes
 
 `VALIDATION_ERROR` (422), `EMAIL_TAKEN` (409), `INVALID_CREDENTIALS` (401), `UNAUTHORIZED` (401), `REFRESH_REUSED` (401), `RATE_LIMITED` (429).
+
+The app shell also emits two API-wide codes that no auth handler raises: `NOT_FOUND` (404) for an unknown `/api/v1` path and `INTERNAL_ERROR` (500) for an unhandled error. They live in `API_ERROR_CODES` in `packages/shared/src/api-error.ts`, not in `AUTH_ERROR_CODES`.
 
 ## Tokens
 
