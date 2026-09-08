@@ -1,6 +1,6 @@
 # Module 1: Auth
 
-Status: specified
+Status: implemented
 
 ## Scope
 
