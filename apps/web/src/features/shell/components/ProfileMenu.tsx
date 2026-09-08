@@ -1,4 +1,4 @@
-import { languageSchema, themeSchema, type Language, type Theme } from "@stockdesk/shared";
+import type { Language, Theme } from "@stockdesk/shared";
 import { Link } from "@tanstack/react-router";
 import { ChevronDownIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -38,7 +38,7 @@ export function ProfileMenu({ defaultOpen }: ProfileMenuProps) {
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>{t("profile.language")}</DropdownMenuLabel>
         <DropdownMenuRadioGroup
-          onValueChange={(value) => setLanguage(languageSchema.parse(value))}
+          onValueChange={setLanguage}
           value={language}
         >
           {LANGUAGES.map((option) => (
@@ -49,7 +49,7 @@ export function ProfileMenu({ defaultOpen }: ProfileMenuProps) {
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>{t("profile.theme")}</DropdownMenuLabel>
-        <DropdownMenuRadioGroup onValueChange={(value) => setTheme(themeSchema.parse(value))} value={theme}>
+        <DropdownMenuRadioGroup onValueChange={setTheme} value={theme}>
           {THEMES.map((option) => (
             <DropdownMenuRadioItem key={option} value={option}>
               {t(`settings:theme.${option}`)}

@@ -1,5 +1,11 @@
 export const NY_TIME_ZONE = "America/New_York";
 
+/**
+ * The "at" column is a timestamp without time zone holding a UTC instant, so it is anchored to UTC
+ * first and only then read in New York; a bare AT TIME ZONE would add the offset instead.
+ */
+export const NY_LOCAL_AT_SQL = `("at" AT TIME ZONE 'UTC') AT TIME ZONE '${NY_TIME_ZONE}'`;
+
 const SESSION_OPEN_TIME = "09:30:00";
 const DAY_START_TIME = "00:00:00";
 const WEEKEND_DAYS = new Set(["Sat", "Sun"]);

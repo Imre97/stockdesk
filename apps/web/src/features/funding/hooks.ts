@@ -21,6 +21,7 @@ import { useAccountsStore } from "../accounts/store";
 import { useSettingsLocale } from "../settings/hooks";
 import * as api from "./api";
 import { parseAmountInput, toTransactionViewModel, type TransactionViewModel } from "./mappers";
+import { useFundingStore } from "./store";
 
 const AMOUNT_DECIMAL_PLACES = 2;
 const AMOUNT_ERROR_KEY = "errors.amountInvalid";
@@ -34,6 +35,21 @@ export interface DepositVariables {
 
 export function transactionsQueryKey(accountId: string | null): readonly unknown[] {
   return ["transactions", accountId];
+}
+
+/**
+ * The deposit page has one selected account: the form writes it into the funding store
+ * and the ledger list reads it back, so both always show the same account. It falls back
+ * to the sidebar selection until the user picks one.
+ */
+export function useSelectedFundingAccountId(): string | null {
+  const accounts = useAccountsStore((state) => state.accounts);
+  const activeAccountId = useAccountsStore((state) => state.activeAccountId);
+  const selectedAccountId = useFundingStore((state) => state.selectedAccountId);
+
+  const exists = accounts.some((account) => account.id === selectedAccountId);
+
+  return selectedAccountId !== null && exists ? selectedAccountId : activeAccountId;
 }
 
 export function useTransactions(accountId: string | null): UseQueryResult<TransactionsPage> {
@@ -92,19 +108,14 @@ function toErrorKey(error: unknown): string {
 }
 
 export function useDepositForm(): DepositFormState {
-  const accounts = useAccountsStore((state) => state.accounts);
-  const activeAccountId = useAccountsStore((state) => state.activeAccountId);
   const locale = useSettingsLocale();
   const mutation = useDeposit();
+  const accountId = useSelectedFundingAccountId();
+  const setSelectedAccountId = useFundingStore((state) => state.setSelectedAccountId);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [errorKey, setErrorKey] = useState<string | null>(null);
-
-  const accountId = selectedId !== null && accounts.some((account) => account.id === selectedId)
-    ? selectedId
-    : activeAccountId;
 
   const { mutate } = mutation;
 
@@ -119,10 +130,15 @@ export function useDepositForm(): DepositFormState {
       }
 
       const parsed = parseAmountInput(amount, locale);
-      const validated =
-        parsed === null ? null : depositAmountSchema.safeParse(toApiString(parsed, AMOUNT_DECIMAL_PLACES));
 
-      if (validated === null || !validated.success) {
+      if (parsed === null || parsed.decimalPlaces() > AMOUNT_DECIMAL_PLACES) {
+        setErrorKey(AMOUNT_ERROR_KEY);
+        return;
+      }
+
+      const validated = depositAmountSchema.safeParse(toApiString(parsed, AMOUNT_DECIMAL_PLACES));
+
+      if (!validated.success) {
         setErrorKey(AMOUNT_ERROR_KEY);
         return;
       }
@@ -149,7 +165,7 @@ export function useDepositForm(): DepositFormState {
     note,
     errorKey,
     pending: mutation.isPending,
-    setAccountId: setSelectedId,
+    setAccountId: setSelectedAccountId,
     setAmount,
     setNote,
     submit,

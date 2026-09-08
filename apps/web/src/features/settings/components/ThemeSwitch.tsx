@@ -1,4 +1,4 @@
-import { themeSchema, type Theme } from "@stockdesk/shared";
+import type { Theme } from "@stockdesk/shared";
 import { useTranslation } from "react-i18next";
 
 import { Label } from "@/components/ui/label";
@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export interface ThemeSwitchProps {
   value: Theme;
-  onChange: (theme: Theme) => void;
+  onChange: (value: string) => void;
 }
 
 const FIELD_ID = "settings-theme";
@@ -18,7 +18,7 @@ export function ThemeSwitch({ value, onChange }: ThemeSwitchProps) {
   return (
     <div className="flex flex-col gap-2">
       <Label htmlFor={FIELD_ID}>{t("theme.label")}</Label>
-      <Select onValueChange={(next) => onChange(themeSchema.parse(next))} value={value}>
+      <Select onValueChange={onChange} value={value}>
         <SelectTrigger id={FIELD_ID}>
           <SelectValue />
         </SelectTrigger>

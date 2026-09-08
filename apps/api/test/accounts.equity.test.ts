@@ -7,8 +7,10 @@ import { truncateAll } from "./db.js";
 import { authHeader, createAccount, mainAccount, registerUser, type AccountSummaryBody } from "./helpers.js";
 
 const FIXED_NOW = new Date("2026-09-08T18:00:00.000Z");
+const NEXT_DAY_NOW = new Date("2026-09-09T18:00:00.000Z");
 
 const app = createApp({ rateLimit: { enabled: false }, deps: { now: () => FIXED_NOW } });
+const nextDayApp = createApp({ rateLimit: { enabled: false }, deps: { now: () => NEXT_DAY_NOW } });
 
 interface EquityPointBody {
   at: string;
@@ -107,6 +109,28 @@ describe("GET /api/v1/accounts/:id/equity", () => {
     expect(points(response)).toEqual([
       { at: "2026-09-07T14:14:00.000Z", equity: "20.00" },
       { at: "2026-09-07T14:16:00.000Z", equity: "30.00" },
+    ]);
+  });
+
+  it("buckets a New York day by the New York clock, not by the UTC clock", async () => {
+    const registered = await registerUser(nextDayApp);
+    const account = await mainAccount(nextDayApp, registered.accessToken);
+
+    await seed(account.id, [
+      ["2026-09-08T19:00:00.000Z", "10.00"],
+      ["2026-09-08T21:00:00.000Z", "20.00"],
+      ["2026-09-09T01:00:00.000Z", "30.00"],
+      ["2026-09-09T14:00:00.000Z", "40.00"],
+    ]);
+
+    const response = await request(nextDayApp)
+      .get(`/api/v1/accounts/${account.id}/equity?range=1Y`)
+      .set(authHeader(registered.accessToken));
+
+    expect(response.status).toBe(200);
+    expect(points(response)).toEqual([
+      { at: "2026-09-09T01:00:00.000Z", equity: "30.00" },
+      { at: "2026-09-09T14:00:00.000Z", equity: "40.00" },
     ]);
   });
 

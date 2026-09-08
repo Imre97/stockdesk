@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import type { Language, Theme } from "@stockdesk/shared";
+import { languageSchema, themeSchema, type Language, type Theme } from "@stockdesk/shared";
 
 import { createWsClient } from "../../lib/ws";
 import { useAuthStore } from "../auth/store";
@@ -14,8 +14,8 @@ export interface ProfileMenuState {
   initials: string;
   language: Language;
   theme: Theme;
-  setLanguage: (language: Language) => void;
-  setTheme: (theme: Theme) => void;
+  setLanguage: (value: string) => void;
+  setTheme: (value: string) => void;
   errorKey: string | null;
   signOut: () => void;
 }
@@ -31,13 +31,31 @@ export function useProfileMenu(): ProfileMenuState {
     void logout();
   }, [logout]);
 
+  const setLanguage = useCallback(
+    (value: string) => {
+      const parsed = languageSchema.safeParse(value);
+
+      if (parsed.success) persistLanguage(parsed.data);
+    },
+    [persistLanguage],
+  );
+
+  const setTheme = useCallback(
+    (value: string) => {
+      const parsed = themeSchema.safeParse(value);
+
+      if (parsed.success) persistTheme(parsed.data);
+    },
+    [persistTheme],
+  );
+
   return {
     displayName: user?.displayName ?? "",
     initials: user?.initials ?? "",
     language,
     theme,
-    setLanguage: persistLanguage,
-    setTheme: persistTheme,
+    setLanguage,
+    setTheme,
     errorKey,
     signOut,
   };

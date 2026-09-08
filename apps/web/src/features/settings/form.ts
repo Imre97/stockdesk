@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Language, Theme } from "@stockdesk/shared";
+import { languageSchema, themeSchema, type Language, type Theme } from "@stockdesk/shared";
 
 import { useSettingsStore } from "./store";
 import { useUpdateSettings } from "./sync";
@@ -9,8 +9,8 @@ export interface SettingsFormState {
   theme: Theme;
   defaultAccountId: string | null;
   pending: boolean;
-  setLanguage: (language: Language) => void;
-  setTheme: (theme: Theme) => void;
+  setLanguage: (value: string) => void;
+  setTheme: (value: string) => void;
   setDefaultAccountId: (accountId: string) => void;
   save: () => void;
 }
@@ -27,6 +27,24 @@ export function useSettingsForm(): SettingsFormState {
 
   useEffect(() => setDefaultAccountId(storedDefaultAccountId), [storedDefaultAccountId]);
 
+  const setLanguage = useCallback(
+    (value: string) => {
+      const parsed = languageSchema.safeParse(value);
+
+      if (parsed.success) setStoreLanguage(parsed.data);
+    },
+    [setStoreLanguage],
+  );
+
+  const setTheme = useCallback(
+    (value: string) => {
+      const parsed = themeSchema.safeParse(value);
+
+      if (parsed.success) setStoreTheme(parsed.data);
+    },
+    [setStoreTheme],
+  );
+
   const { mutate } = mutation;
 
   const save = useCallback(() => {
@@ -42,8 +60,8 @@ export function useSettingsForm(): SettingsFormState {
     theme,
     defaultAccountId,
     pending: mutation.isPending,
-    setLanguage: setStoreLanguage,
-    setTheme: setStoreTheme,
+    setLanguage,
+    setTheme,
     setDefaultAccountId,
     save,
   };

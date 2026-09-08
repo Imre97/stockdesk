@@ -85,3 +85,67 @@ describe("useUpdateSettings", () => {
     expect(toast.success).toHaveBeenCalled();
   });
 });
+
+describe("settings query freshness", () => {
+  it("does not refetch the settings while the cached copy is fresh", async () => {
+    api.fetchSettings.mockResolvedValue(SERVER_SETTINGS);
+
+    renderHook(() => useSettingsSync(), { wrapper });
+
+    await waitFor(() => {
+      expect(useSettingsStore.getState().status).toBe("loaded");
+    });
+
+    renderHook(() => useSettingsSync(), { wrapper });
+
+    await waitFor(() => {
+      expect(useSettingsStore.getState().language).toBe("hu");
+    });
+
+    expect(api.fetchSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the locally applied value and does not refetch after a failed patch", async () => {
+    api.fetchSettings.mockResolvedValue(SERVER_SETTINGS);
+    api.updateSettings.mockRejectedValue(new Error("offline"));
+
+    const { result } = renderHook(
+      () => ({ sync: useSettingsSync(), update: useUpdateSettings() }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(useSettingsStore.getState().status).toBe("loaded");
+    });
+
+    useSettingsStore.getState().setTheme("light");
+    result.current.update.mutate({ theme: "light" });
+
+    await waitFor(() => {
+      expect(api.updateSettings).toHaveBeenCalled();
+    });
+
+    expect(api.fetchSettings).toHaveBeenCalledTimes(1);
+    expect(useSettingsStore.getState().theme).toBe("light");
+  });
+
+  it("refetches the settings after a successful patch", async () => {
+    api.fetchSettings.mockResolvedValue(SERVER_SETTINGS);
+    api.updateSettings.mockResolvedValue(SERVER_SETTINGS);
+
+    const { result } = renderHook(
+      () => ({ sync: useSettingsSync(), update: useUpdateSettings() }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(useSettingsStore.getState().status).toBe("loaded");
+    });
+
+    result.current.update.mutate({ theme: "dark" });
+
+    await waitFor(() => {
+      expect(api.fetchSettings).toHaveBeenCalledTimes(2);
+    });
+  });
+});

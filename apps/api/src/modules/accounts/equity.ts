@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { toApiString, type EquityPointDto, type EquityRange } from "@stockdesk/shared";
 import { prisma } from "../../lib/prisma.js";
-import { lastNWeekdaysWindow, nyTradingDayWindow, NY_TIME_ZONE, type NyWindow } from "./ny-time.js";
+import { lastNWeekdaysWindow, nyTradingDayWindow, NY_LOCAL_AT_SQL, type NyWindow } from "./ny-time.js";
 
 const MONEY_PLACES = 2;
 const WEEKDAYS_IN_WEEK_RANGE = 5;
@@ -41,11 +41,9 @@ export function rangeWindow(range: EquityRange, now: Date): NyWindow {
 }
 
 function bucketSql(bucket: EquityBucket): Prisma.Sql {
-  const local = `"at" AT TIME ZONE '${NY_TIME_ZONE}'`;
+  if (bucket.kind === "trunc") return Prisma.raw(`date_trunc('${bucket.unit}', ${NY_LOCAL_AT_SQL})`);
 
-  if (bucket.kind === "trunc") return Prisma.raw(`date_trunc('${bucket.unit}', ${local})`);
-
-  return Prisma.raw(`date_bin('${bucket.interval}', ${local}, TIMESTAMP '${BIN_ORIGIN}')`);
+  return Prisma.raw(`date_bin('${bucket.interval}', ${NY_LOCAL_AT_SQL}, TIMESTAMP '${BIN_ORIGIN}')`);
 }
 
 export async function loadEquityPoints(

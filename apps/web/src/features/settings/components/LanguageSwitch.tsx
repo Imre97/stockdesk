@@ -1,4 +1,4 @@
-import { languageSchema, type Language } from "@stockdesk/shared";
+import type { Language } from "@stockdesk/shared";
 import { useTranslation } from "react-i18next";
 
 import { Label } from "@/components/ui/label";
@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export interface LanguageSwitchProps {
   value: Language;
-  onChange: (language: Language) => void;
+  onChange: (value: string) => void;
 }
 
 const FIELD_ID = "settings-language";
@@ -18,7 +18,7 @@ export function LanguageSwitch({ value, onChange }: LanguageSwitchProps) {
   return (
     <div className="flex flex-col gap-2">
       <Label htmlFor={FIELD_ID}>{t("language.label")}</Label>
-      <Select onValueChange={(next) => onChange(languageSchema.parse(next))} value={value}>
+      <Select onValueChange={onChange} value={value}>
         <SelectTrigger id={FIELD_ID}>
           <SelectValue />
         </SelectTrigger>

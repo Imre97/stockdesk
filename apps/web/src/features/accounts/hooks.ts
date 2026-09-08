@@ -15,6 +15,8 @@ import * as api from "./api";
 import { toAccountViewModel, type AccountViewModel } from "./mappers";
 import { useAccountsStore } from "./store";
 
+export const MARKET_DATA_STALE_TIME_MS = 60_000;
+
 export function equityQueryKey(accountId: string | null, range: EquityRange): readonly unknown[] {
   return ["equity", accountId, range];
 }
@@ -69,6 +71,7 @@ export function useEquity(accountId: string | null, range: EquityRange): UseQuer
     queryKey: equityQueryKey(accountId, range),
     queryFn: () => api.getEquity(accountId ?? "", range),
     enabled: accountId !== null,
+    staleTime: MARKET_DATA_STALE_TIME_MS,
   });
 }
 
@@ -77,6 +80,7 @@ export function usePositions(accountId: string | null): UseQueryResult<Positions
     queryKey: positionsQueryKey(accountId),
     queryFn: () => api.getPositions(accountId ?? ""),
     enabled: accountId !== null,
+    staleTime: MARKET_DATA_STALE_TIME_MS,
   });
 }
 

@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { Decimal, cashTransactionSchema, depositResponseSchema } from "@stockdesk/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { I18nextProvider } from "react-i18next";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const api = vi.hoisted(() => ({ deposit: vi.fn(), listTransactions: vi.fn() }));
@@ -10,86 +11,180 @@ const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("./api", () => api);
 vi.mock("sonner", () => ({ toast }));
 
+import { i18n } from "../../i18n";
 import { useAccountsStore } from "../accounts/store";
-import { transactionsQueryKey, useDeposit } from "./hooks";
+import { useSettingsStore } from "../settings/store";
+import {
+  transactionsQueryKey,
+  useDeposit,
+  useDepositForm,
+  useSelectedFundingAccountId,
+  useTransactionRows,
+} from "./hooks";
+import { useFundingStore } from "./store";
 
-const ACCOUNT_DTO = {
-  id: "acc-1",
-  name: "Main",
-  cash: "105000.00",
-  positionsValue: "0.00",
-  equity: "105000.00",
-  unrealizedPnl: "0.00",
-  unrealizedPnlPct: "0.00",
-  dailyPnl: "0.00",
-  dailyPnlPct: "0.00",
-  createdAt: "2026-09-08T10:00:00.000Z",
-};
+function accountDto(id: string, name: string, createdAt: string, cash = "100000.00") {
+  return {
+    id,
+    name,
+    cash,
+    positionsValue: "0.00",
+    equity: cash,
+    unrealizedPnl: "0.00",
+    unrealizedPnlPct: "0.00",
+    dailyPnl: "0.00",
+    dailyPnlPct: "0.00",
+    createdAt,
+  };
+}
 
-const EXISTING_TRANSACTION = cashTransactionSchema.parse({
-  id: "tx-0",
-  accountId: "acc-1",
-  type: "DEPOSIT",
-  amount: "100000.00",
-  balanceAfter: "100000.00",
-  note: "initial funding",
-  referenceId: null,
-  createdAt: "2026-09-08T10:00:00.000Z",
-});
+const MAIN = accountDto("acc-1", "Main", "2026-09-08T10:00:00.000Z");
+const SAVINGS = accountDto("acc-2", "Savings", "2026-09-09T10:00:00.000Z", "250.50");
 
-const DEPOSIT_RESPONSE = depositResponseSchema.parse({
-  account: ACCOUNT_DTO,
-  transaction: {
-    id: "tx-1",
-    accountId: "acc-1",
-    type: "DEPOSIT",
-    amount: "5000.00",
-    balanceAfter: "105000.00",
+function transaction(id: string, accountId: string, amount: string, balanceAfter: string, createdAt: string) {
+  return {
+    id,
+    accountId,
+    type: "DEPOSIT" as const,
+    amount,
+    balanceAfter,
     note: null,
     referenceId: null,
-    createdAt: "2026-09-08T10:05:00.000Z",
-  },
+    createdAt,
+  };
+}
+
+const MAIN_LEDGER = [
+  cashTransactionSchema.parse(transaction("tx-main", "acc-1", "100000.00", "100000.00", "2026-09-08T10:00:00.000Z")),
+];
+const SAVINGS_LEDGER = [
+  cashTransactionSchema.parse(transaction("tx-savings", "acc-2", "250.50", "250.50", "2026-09-09T10:00:00.000Z")),
+];
+
+const SAVINGS_DEPOSIT = depositResponseSchema.parse({
+  account: { ...SAVINGS, cash: "5250.50", equity: "5250.50" },
+  transaction: transaction("tx-new", "acc-2", "5000.00", "5250.50", "2026-09-09T11:00:00.000Z"),
 });
+
+const SUBMIT_EVENT = { preventDefault: () => undefined } as unknown as FormEvent<HTMLFormElement>;
 
 let queryClient: QueryClient;
 
 function wrapper({ children }: { children: ReactNode }) {
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <I18nextProvider i18n={i18n}>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </I18nextProvider>
+  );
+}
+
+function useDepositPage() {
+  const form = useDepositForm();
+  const accountId = useSelectedFundingAccountId();
+  const rows = useTransactionRows(accountId);
+
+  return { form, accountId, rows };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  useSettingsStore.setState({ language: "en", theme: "system", defaultAccountId: null, status: "idle" });
   useAccountsStore.setState({ accounts: [], activeAccountId: null, status: "idle" });
+  useAccountsStore.getState().setAccounts([MAIN, SAVINGS]);
+  useFundingStore.setState({ selectedAccountId: null });
+  api.listTransactions.mockImplementation((accountId: string) =>
+    Promise.resolve({
+      transactions: accountId === "acc-2" ? SAVINGS_LEDGER : MAIN_LEDGER,
+      nextCursor: null,
+    }),
+  );
 });
 
 describe("useDeposit", () => {
   it("upserts the returned account and prepends the transaction to the cached page", async () => {
-    useAccountsStore.getState().setAccounts([{ ...ACCOUNT_DTO, cash: "100000.00", equity: "100000.00" }]);
-    queryClient.setQueryData(transactionsQueryKey("acc-1"), {
-      transactions: [EXISTING_TRANSACTION],
+    queryClient.setQueryData(transactionsQueryKey("acc-2"), {
+      transactions: SAVINGS_LEDGER,
       nextCursor: null,
     });
-    api.deposit.mockResolvedValue(DEPOSIT_RESPONSE);
+    api.deposit.mockResolvedValue(SAVINGS_DEPOSIT);
 
     const { result } = renderHook(() => useDeposit(), { wrapper });
 
-    result.current.mutate({ accountId: "acc-1", amount: new Decimal("5000.00") });
+    result.current.mutate({ accountId: "acc-2", amount: new Decimal("5000.00") });
 
     await waitFor(() => {
-      expect(api.deposit).toHaveBeenCalledWith("acc-1", { amount: new Decimal("5000.00"), note: undefined });
+      expect(api.deposit).toHaveBeenCalledWith("acc-2", { amount: new Decimal("5000.00"), note: undefined });
     });
 
     await waitFor(() => {
-      expect(useAccountsStore.getState().accounts[0]?.equity.equals(new Decimal("105000.00"))).toBe(true);
+      const account = useAccountsStore.getState().accounts.find((entry) => entry.id === "acc-2");
+      expect(account?.equity.equals(new Decimal("5250.50"))).toBe(true);
     });
 
-    const page = queryClient.getQueryData(transactionsQueryKey("acc-1")) as {
-      transactions: { id: string }[];
-      nextCursor: string | null;
-    };
+    const page = queryClient.getQueryData(transactionsQueryKey("acc-2")) as { transactions: { id: string }[] };
 
-    expect(page.transactions.map((transaction) => transaction.id)).toEqual(["tx-1", "tx-0"]);
+    expect(page.transactions.map((entry) => entry.id)).toEqual(["tx-new", "tx-savings"]);
     expect(toast.success).toHaveBeenCalled();
+  });
+});
+
+describe("the deposit page ledger", () => {
+  it("follows the account chosen in the form instead of the sidebar-active one", async () => {
+    api.deposit.mockResolvedValue(SAVINGS_DEPOSIT);
+
+    const { result } = renderHook(() => useDepositPage(), { wrapper });
+
+    expect(useAccountsStore.getState().activeAccountId).toBe("acc-1");
+
+    act(() => result.current.form.setAccountId("acc-2"));
+
+    await waitFor(() => {
+      expect(result.current.accountId).toBe("acc-2");
+    });
+
+    await waitFor(() => {
+      expect(result.current.rows.map((row) => row.id)).toEqual(["tx-savings"]);
+    });
+
+    act(() => result.current.form.setAmount("5000.00"));
+    act(() => result.current.form.submit(SUBMIT_EVENT));
+
+    await waitFor(() => {
+      expect(api.deposit).toHaveBeenCalledWith("acc-2", { amount: new Decimal("5000.00"), note: undefined });
+    });
+
+    await waitFor(() => {
+      expect(result.current.rows.map((row) => row.id)).toEqual(["tx-new", "tx-savings"]);
+    });
+
+    const mainPage = queryClient.getQueryData(transactionsQueryKey("acc-1")) as
+      | { transactions: { id: string }[] }
+      | undefined;
+
+    expect(mainPage?.transactions.map((entry) => entry.id) ?? []).not.toContain("tx-new");
+  });
+
+  it("falls back to the sidebar-active account when nothing was chosen", () => {
+    const { result } = renderHook(() => useDepositPage(), { wrapper });
+
+    expect(result.current.accountId).toBe("acc-1");
+  });
+});
+
+describe("useDepositForm validation", () => {
+  it("rejects an amount with more than two decimals instead of rounding it", async () => {
+    const { result } = renderHook(() => useDepositForm(), { wrapper });
+
+    act(() => result.current.setAmount("1000.005"));
+    act(() => result.current.submit(SUBMIT_EVENT));
+
+    await waitFor(() => {
+      expect(result.current.errorKey).toBe("errors.amountInvalid");
+    });
+
+    expect(api.deposit).not.toHaveBeenCalled();
   });
 });

@@ -95,6 +95,27 @@ export async function listAccountsViaApi(
   return body.accounts;
 }
 
+export async function createAccountViaApi(
+  request: APIRequestContext,
+  accessToken: string,
+  name: string,
+): Promise<AccountSummaryJson> {
+  const response = await request.post(`${API_BASE_URL}/api/v1/accounts`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    data: { name },
+  });
+
+  if (!response.ok()) {
+    throw new Error(
+      `Creating the account through the API failed with status ${response.status()}: ${await response.text()}`,
+    );
+  }
+
+  const body = (await response.json()) as { account: AccountSummaryJson };
+
+  return body.account;
+}
+
 export async function depositViaApi(
   request: APIRequestContext,
   accessToken: string,

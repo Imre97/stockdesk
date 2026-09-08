@@ -106,6 +106,17 @@ describe("useProfileMenu", () => {
     expect(settingsApi.updateSettings).toHaveBeenCalledTimes(1);
   });
 
+  it("ignores a value that is not a supported language or theme", () => {
+    const { result } = renderHook(() => useProfileMenu(), { wrapper });
+
+    act(() => result.current.setLanguage("klingon"));
+    act(() => result.current.setTheme("neon"));
+
+    expect(settingsApi.updateSettings).not.toHaveBeenCalled();
+    expect(useSettingsStore.getState().language).toBe("en");
+    expect(useSettingsStore.getState().theme).toBe("system");
+  });
+
   it("keeps the local theme and surfaces the error key when the patch fails", async () => {
     settingsApi.updateSettings.mockRejectedValue(new Error("offline"));
 

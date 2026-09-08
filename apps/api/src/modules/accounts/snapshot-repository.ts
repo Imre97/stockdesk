@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { Decimal, toApiString } from "@stockdesk/shared";
 import { prisma } from "../../lib/prisma.js";
-import { NY_TIME_ZONE } from "./ny-time.js";
+import { NY_LOCAL_AT_SQL } from "./ny-time.js";
 
 const MONEY_PLACES = 2;
 const MILLISECONDS_PER_SECOND = 1000;
@@ -58,7 +58,7 @@ export async function referenceEquities(
 }
 
 function localHour(): string {
-  return `date_trunc('hour', "at" AT TIME ZONE '${NY_TIME_ZONE}')`;
+  return `date_trunc('hour', ${NY_LOCAL_AT_SQL})`;
 }
 
 export async function deleteCoarseSnapshots(before: Date): Promise<number> {

@@ -1,14 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
-import { useActiveAccountId } from "../../features/accounts/hooks";
 import { DepositForm } from "../../features/funding/components/DepositForm";
 import { TransactionsList } from "../../features/funding/components/TransactionsList";
-import { useTransactionRows } from "../../features/funding/hooks";
+import { useSelectedFundingAccountId, useTransactionRows } from "../../features/funding/hooks";
 
 function DepositPage() {
   const { t } = useTranslation("funding");
-  const accountId = useActiveAccountId();
+  const accountId = useSelectedFundingAccountId();
   const rows = useTransactionRows(accountId);
 
   return (
