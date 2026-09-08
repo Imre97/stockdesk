@@ -2,7 +2,7 @@ import { Decimal } from "@stockdesk/shared";
 
 import type { Quote, SymbolProfile, Trade } from "../types.js";
 import { aggregate } from "./bars.js";
-import { dayIndexOf, indexRange, minuteIndexAt, minuteIndexOf } from "./buckets.js";
+import { dayIndexOf, indexRange, minuteRefOf } from "./buckets.js";
 import type { SimulatedAsset } from "./universe.js";
 import type { Ohlcv, PriceWalk } from "./walk.js";
 
@@ -15,11 +15,9 @@ export function buildQuote(
   lastTrade: Trade | undefined,
   now: Date,
 ): Quote {
-  const dayIndex = dayIndexOf(now);
-  const firstMinute = minuteIndexAt(dayIndex, 0);
-  const elapsed = minuteIndexOf(now) - firstMinute;
+  const { dayIndex, minuteOfDay } = minuteRefOf(now);
   const open = walk.dayClose(asset, dayIndex - 1);
-  const session = sessionSoFar(walk, asset, firstMinute, elapsed, open);
+  const session = sessionSoFar(walk, asset, dayIndex, minuteOfDay, open);
   const last = lastTrade === undefined ? session.close : lastTrade.price;
 
   return {
@@ -60,12 +58,12 @@ export function buildProfile(walk: PriceWalk, asset: SimulatedAsset, now: Date):
 function sessionSoFar(
   walk: PriceWalk,
   asset: SimulatedAsset,
-  firstMinute: number,
+  dayIndex: number,
   elapsed: number,
   open: Decimal,
 ): Ohlcv {
   if (elapsed <= 0) {
     return { open, high: open, low: open, close: open, volume: new Decimal(0) };
   }
-  return aggregate(indexRange(firstMinute, elapsed).map((index) => walk.minuteBar(asset, index)));
+  return aggregate(indexRange(0, elapsed).map((minute) => walk.minuteBar(asset, dayIndex, minute)));
 }

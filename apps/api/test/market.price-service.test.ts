@@ -106,6 +106,21 @@ describe("price service", () => {
     );
   });
 
+  it("reads the previous close from the last final daily candle before the New York day", async () => {
+    const { runtime } = buildRuntime(SATURDAY);
+
+    await runtime.candles.getBars({ symbol: "TSLA", timeframe: "1D", limit: 5 });
+
+    const bars = await runtime.candles.getBars({ symbol: "TSLA", timeframe: "1D", limit: 5 });
+    const newest = bars.bars[bars.bars.length - 1];
+    const prevClose = await runtime.priceService.getPrevClose("TSLA", SATURDAY);
+
+    expect(newest?.time).toBe("2026-09-11T04:00:00.000Z");
+    expect(prevClose?.toDecimalPlaces(4).toString()).toBe(
+      new Decimal(newest?.close ?? "0").toString(),
+    );
+  });
+
   it("builds a quote snapshot with a derived change", async () => {
     const { runtime } = buildRuntime(MARKET_NOW);
 

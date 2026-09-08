@@ -9,7 +9,7 @@ describe("GET /api/v1/health", () => {
     const response = await request(app).get("/api/v1/health");
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ status: "ok", database: "ok" });
+    expect(response.body).toEqual({ status: "ok", database: "ok", ready: true });
   });
 
   it("reports the database as unreachable when the check fails", async () => {
@@ -21,6 +21,18 @@ describe("GET /api/v1/health", () => {
     const response = await request(degraded).get("/api/v1/health");
 
     expect(response.status).toBe(503);
-    expect(response.body).toEqual({ status: "degraded", database: "unreachable" });
+    expect(response.body).toEqual({ status: "degraded", database: "unreachable", ready: true });
+  });
+
+  it("keeps answering 200 with ready false while the boot tasks are still running", async () => {
+    const booting = createApp({
+      rateLimit: { enabled: false },
+      readiness: { isReady: () => false, markReady: () => undefined },
+    });
+
+    const response = await request(booting).get("/api/v1/health");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ status: "ok", database: "ok", ready: false });
   });
 });

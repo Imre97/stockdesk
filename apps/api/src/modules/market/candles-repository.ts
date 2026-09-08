@@ -154,14 +154,13 @@ export async function latestFinalBarBefore(
   });
 }
 
-export async function formingBarSince(
+export async function formingBarAt(
   symbolId: string,
   timeframe: Timeframe,
-  from: Date,
+  time: Date,
 ): Promise<CandleRow | null> {
   return await prisma.candle.findFirst({
-    where: { symbolId, timeframe, isFinal: false, time: { gte: from } },
-    orderBy: { time: "desc" },
+    where: { symbolId, timeframe, time, isFinal: false },
     select: CANDLE_COLUMNS,
   });
 }

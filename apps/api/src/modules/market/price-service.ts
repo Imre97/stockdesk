@@ -1,5 +1,4 @@
 import { Decimal, type MarketStatus, type Timeframe } from "@stockdesk/shared";
-import { nyTradingDayWindow } from "../accounts/ny-time.js";
 import { marketStatusAt } from "./calendar.js";
 import * as candlesRepository from "./candles-repository.js";
 import type { CandleRow } from "./candles-repository.js";
@@ -7,6 +6,7 @@ import type { CandleCache } from "./candles.js";
 import type { CompositeProvider } from "./providers/composite.js";
 import type { Quote, Trade, TradeHandler } from "./providers/types.js";
 import { findActiveSymbol } from "./symbols-repository.js";
+import { bucketStartMs } from "./timeframes.js";
 
 const SIMULATED = "simulated";
 const DAILY: Timeframe = "1D";
@@ -73,6 +73,10 @@ function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function dayStart(at: Date): Date {
+  return new Date(bucketStartMs(at.getTime(), DAILY));
+}
+
 function sameStatus(left: MarketStatus, right: MarketStatus): boolean {
   return (
     left.status === right.status &&
@@ -136,7 +140,7 @@ export function createPriceService(options: PriceServiceOptions): PriceService {
   }
 
   async function prevCloseFor(id: string, at: Date): Promise<Decimal | null> {
-    const row = await candlesRepository.latestFinalBarBefore(id, DAILY, nyTradingDayWindow(at).from);
+    const row = await candlesRepository.latestFinalBarBefore(id, DAILY, dayStart(at));
 
     return row === null ? null : toDecimal(row.close);
   }
@@ -188,7 +192,7 @@ export function createPriceService(options: PriceServiceOptions): PriceService {
 
     const at = now();
     const trade = lastTrades.get(symbol);
-    const forming = await candlesRepository.formingBarSince(id, DAILY, nyTradingDayWindow(at).from);
+    const forming = await candlesRepository.formingBarAt(id, DAILY, dayStart(at));
     const fallback = forming === null ? await simulatedQuote(symbol) : null;
     const last = trade?.price ?? fallback?.last ?? (await cachedClose(id));
     if (last === null || last === undefined) return null;

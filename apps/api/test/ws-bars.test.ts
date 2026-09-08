@@ -23,7 +23,7 @@ const BAR_START = new Date("2026-09-08T18:00:30.000Z");
 const FIRST_BUCKET = "2026-09-08T18:00:00.000Z";
 const SECOND_BUCKET = "2026-09-08T18:01:00.000Z";
 const NEXT_MINUTE = new Date("2026-09-08T18:01:05.000Z");
-const DAY_BUCKET = "2026-09-08T00:00:00.000Z";
+const DAY_BUCKET = "2026-09-08T04:00:00.000Z";
 
 const servers: TestMarketServer[] = [];
 const clients: TestSocket[] = [];

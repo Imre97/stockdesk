@@ -15,9 +15,17 @@ export const DAYS_PER_YEAR = 365;
 export const DAILY_HISTORY_DAYS = 730;
 export const MINUTE_HISTORY_DAYS = 30;
 
+const HALF_DAY_MS = MS_PER_DAY / 2;
+const EPOCH_DAY_START_MS = bucketStartMs(BUCKET_EPOCH_MS, "1D");
+
 const MINUTE_SPANS: Partial<Record<Timeframe, number>> = { "1m": 1, "5m": 5, "15m": 15, "1h": 60 };
 
 export type BucketSource = "minute" | "day";
+
+export interface MinuteRef {
+  dayIndex: number;
+  minuteOfDay: number;
+}
 
 export const bucketStartAt = bucketStartMs;
 export const nextBucketStart = nextBucketStartMs;
@@ -31,16 +39,36 @@ export function sourceOf(timeframe: Timeframe): BucketSource {
   return minuteSpanOf(timeframe) === undefined ? "day" : "minute";
 }
 
+/**
+ * The walk is indexed by New York days, so the index counts day starts rather than fixed spans:
+ * daylight saving time moves a day start by an hour at most, which the half-day shift absorbs, and
+ * the inverse lands at midday inside the wanted day before it is floored back to that day's start.
+ */
+export function dayIndexAt(dayStartMs: number): number {
+  return Math.floor((dayStartMs - EPOCH_DAY_START_MS + HALF_DAY_MS) / MS_PER_DAY);
+}
+
+export function dayStartMsOf(dayIndex: number): number {
+  return bucketStartMs(EPOCH_DAY_START_MS + dayIndex * MS_PER_DAY + HALF_DAY_MS, "1D");
+}
+
 export function dayIndexOf(time: Date): number {
-  return Math.floor((time.getTime() - EPOCH_MS) / MS_PER_DAY);
+  return dayIndexAt(bucketStartMs(time.getTime(), "1D"));
 }
 
-export function minuteIndexOf(time: Date): number {
-  return Math.floor((time.getTime() - EPOCH_MS) / MS_PER_MINUTE);
+export function minutesInDay(dayIndex: number): number {
+  const start = dayStartMsOf(dayIndex);
+
+  return (nextBucketStartMs(start, "1D") - start) / MS_PER_MINUTE;
 }
 
-export function minuteIndexAt(dayIndex: number, minuteOfDay: number): number {
-  return dayIndex * MINUTES_PER_DAY + minuteOfDay;
+export function minuteRefOf(time: Date): MinuteRef {
+  const dayStart = bucketStartMs(time.getTime(), "1D");
+
+  return {
+    dayIndex: dayIndexAt(dayStart),
+    minuteOfDay: Math.floor((time.getTime() - dayStart) / MS_PER_MINUTE),
+  };
 }
 
 export function historyStartMs(timeframe: Timeframe, now: Date): number {

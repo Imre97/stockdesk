@@ -12,7 +12,7 @@ import type {
 } from "../types.js";
 import { CAPABILITIES } from "../types.js";
 import { buildBars } from "./bars.js";
-import { minuteIndexOf } from "./buckets.js";
+import { minuteRefOf, type MinuteRef } from "./buckets.js";
 import type { RandomStream } from "./prng.js";
 import { createStream } from "./prng.js";
 import { buildProfile, buildQuote } from "./quotes.js";
@@ -35,7 +35,7 @@ export interface SimulatedProvider extends MarketDataProvider {
 }
 
 interface TickStream {
-  minuteIndex: number;
+  key: string;
   stream: RandomStream;
 }
 
@@ -49,18 +49,19 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
   const tickStreams = new Map<string, TickStream>();
   let timer: NodeJS.Timeout | undefined;
 
-  function tickStreamFor(symbol: string, minuteIndex: number): RandomStream {
+  function tickStreamFor(symbol: string, minute: MinuteRef): RandomStream {
+    const key = `${minute.dayIndex}:${minute.minuteOfDay}`;
     const current = tickStreams.get(symbol);
-    if (current !== undefined && current.minuteIndex === minuteIndex) return current.stream;
-    const stream = createStream(seed, symbol, "tick", minuteIndex);
-    tickStreams.set(symbol, { minuteIndex, stream });
+    if (current !== undefined && current.key === key) return current.stream;
+    const stream = createStream(seed, symbol, "tick", minute.dayIndex, minute.minuteOfDay);
+    tickStreams.set(symbol, { key, stream });
     return stream;
   }
 
   function nextTrade(asset: SimulatedAsset, at: Date): Trade {
-    const minuteIndex = minuteIndexOf(at);
-    const stream = tickStreamFor(asset.symbol, minuteIndex);
-    const price = walk.tickPrice(asset, minuteIndex, stream.nextNormal());
+    const minute = minuteRefOf(at);
+    const stream = tickStreamFor(asset.symbol, minute);
+    const price = walk.tickPrice(asset, minute.dayIndex, minute.minuteOfDay, stream.nextNormal());
     const size = new Decimal(1 + Math.floor(stream.next() * MAX_TRADE_SIZE));
     return { symbol: asset.symbol, price, size, at };
   }

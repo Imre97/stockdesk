@@ -12,6 +12,7 @@ import type { ProviderSocketFactory } from "./modules/market/providers/reconnect
 import { systemTimers } from "./modules/market/providers/reconnecting-socket.js";
 import { createSimulatedProvider } from "./modules/market/providers/simulated/provider.js";
 import { createMarketRuntime } from "./modules/market/runtime.js";
+import { createReadiness } from "./readiness.js";
 import { createMarketGateway } from "./ws/market-gateway.js";
 import { createUserRegistry } from "./ws/user-registry.js";
 
@@ -19,6 +20,7 @@ const SIMULATED_TICK_INTERVAL_MS = 1000;
 
 const config = getConfig();
 const registry = createUserRegistry();
+const readiness = createReadiness();
 
 const broadcast = (userId: string, message: ServerMessage): void => {
   registry.broadcastToUser(userId, message);
@@ -54,7 +56,7 @@ const providers = createProvidersFromConfig(config, {
 
 const market = createMarketRuntime({ config, providers, log });
 
-const server = createServer(createApp({ config, deps: { broadcast }, market }));
+const server = createServer(createApp({ config, deps: { broadcast }, market, readiness }));
 
 createMarketGateway({ server, config, registry, runtime: market, log });
 
@@ -70,6 +72,7 @@ server.listen(config.port, () => {
 runBootTasks(config, {
   broadcast,
   marketJobs: createMarketJobs({ config, runtime: market, log }),
+  readiness,
 }).catch((error: unknown) => {
   const reason = error instanceof Error ? error.message : String(error);
   process.stderr.write(`Starting the boot tasks failed: ${reason}\n`);

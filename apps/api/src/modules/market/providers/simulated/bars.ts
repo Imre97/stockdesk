@@ -1,13 +1,12 @@
-import { Decimal } from "@stockdesk/shared";
+import { Decimal, type Timeframe } from "@stockdesk/shared";
 
 import type { Bar, BarsQuery } from "../types.js";
 import {
   bucketStartAt,
-  EPOCH_MS,
+  dayIndexAt,
   historyStartMs,
   indexRange,
-  MS_PER_DAY,
-  MS_PER_MINUTE,
+  minuteRefOf,
   minuteSpanOf,
   nextBucketStart,
   previousBucketStart,
@@ -43,12 +42,21 @@ function sourceSlices(walk: PriceWalk, asset: SimulatedAsset, start: number, que
   const { timeframe } = query;
   if (sourceOf(timeframe) === "minute") {
     const span = minuteSpanOf(timeframe) ?? 1;
-    const first = Math.floor((start - EPOCH_MS) / MS_PER_MINUTE);
-    return indexRange(first, span).map((index) => walk.minuteBar(asset, index));
+    const { dayIndex, minuteOfDay } = minuteRefOf(new Date(start));
+    return indexRange(minuteOfDay, span).map((minute) => walk.minuteBar(asset, dayIndex, minute));
   }
-  const first = Math.floor((start - EPOCH_MS) / MS_PER_DAY);
-  const afterLast = Math.floor((nextBucketStart(start, timeframe) - EPOCH_MS) / MS_PER_DAY);
-  return indexRange(first, afterLast - first).map((index) => walk.dayModel(asset, index));
+  return dayIndexesIn(start, timeframe).map((index) => walk.dayModel(asset, index));
+}
+
+function dayIndexesIn(start: number, timeframe: Timeframe): number[] {
+  const end = nextBucketStart(start, timeframe);
+  const indexes: number[] = [];
+
+  for (let cursor = start; cursor < end; cursor = nextBucketStart(cursor, "1D")) {
+    indexes.push(dayIndexAt(cursor));
+  }
+
+  return indexes;
 }
 
 export function aggregate(slices: Ohlcv[]): Ohlcv {

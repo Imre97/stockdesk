@@ -13,7 +13,7 @@ const SYMBOL = "TSLA";
 const SYMBOL_ID = "symbol-tsla";
 const FIRST_MINUTE = "2026-09-08T18:00:00.000Z";
 const SECOND_MINUTE = "2026-09-08T18:01:00.000Z";
-const DAY_START = "2026-09-08T00:00:00.000Z";
+const DAY_START = "2026-09-08T04:00:00.000Z";
 const PERSIST_INTERVAL_MS = 1000;
 
 interface ManualTimers extends BarAggregatorTimers {

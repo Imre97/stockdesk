@@ -15,6 +15,7 @@ import { createHealthRouter, type DatabaseCheck } from "./modules/health/router.
 import { createMarketRouter } from "./modules/market/router.js";
 import { createMarketRuntime, type MarketRuntime } from "./modules/market/runtime.js";
 import { createSettingsRouter } from "./modules/settings/router.js";
+import type { Readiness } from "./readiness.js";
 import { mountStaticWeb } from "./static-web.js";
 
 const MILLISECONDS_PER_MINUTE = 60 * 1000;
@@ -34,6 +35,7 @@ export interface CreateAppOptions {
   checkDatabase?: DatabaseCheck;
   deps?: AccountsDependencies;
   market?: MarketRuntime;
+  readiness?: Readiness;
 }
 
 function reportToStderr(message: string): void {
@@ -79,7 +81,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   const authRateLimiter = buildAuthRateLimiter(options.rateLimit, config);
   const apiRouter = express.Router();
 
-  apiRouter.use("/health", createHealthRouter(options.checkDatabase));
+  apiRouter.use("/health", createHealthRouter(options.checkDatabase, options.readiness));
   apiRouter.use("/auth", createAuthRouter(config, authRateLimiter, dependencies));
   apiRouter.use("/accounts", createAccountsRouter(config, dependencies));
   apiRouter.use("/market", createMarketRouter(config, market));

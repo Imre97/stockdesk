@@ -83,7 +83,7 @@ Defined in `render.yaml` at the repository root (Render Blueprint), created with
   (root script builds `packages/shared`, then `apps/web`, then `apps/api`, and runs `prisma generate`).
 - Pre-deploy command: `npm run db:migrate:deploy` (`prisma migrate deploy` with `DIRECT_URL`).
 - Start command: `npm run start --workspace @stockdesk/api` (`node apps/api/dist/server.js`).
-- Health check path: `/api/v1/health` (returns `200 { "status": "ok", "database": "ok", "marketData": ["simulated"] }`; `503` when the database is unreachable).
+- Health check path: `/api/v1/health` (returns `200 { "status": "ok", "database": "ok", "ready": true }`; `ready` is `false` while the boot tasks including the symbol refresh are still running, with the status still `200`; `503` when the database is unreachable).
 - Environment variables set in the Render dashboard; `render.yaml` lists them with `sync: false` so values never enter git.
 - Auto-deploy on push to `main`.
 

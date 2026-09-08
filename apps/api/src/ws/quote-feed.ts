@@ -1,6 +1,6 @@
 import type { Decimal } from "@stockdesk/shared";
-import { nyTradingDayWindow } from "../modules/accounts/ny-time.js";
 import type { PriceService } from "../modules/market/price-service.js";
+import { bucketStartMs } from "../modules/market/timeframes.js";
 import type { Trade } from "../modules/market/providers/types.js";
 import { quoteMessage } from "./market-messages.js";
 import type { MarketSubscriptions } from "./market-subscriptions.js";
@@ -42,7 +42,7 @@ export function createQuoteFeed(options: QuoteFeedOptions): QuoteFeed {
   const prevCloses = new Map<string, CachedPrevClose>();
 
   async function prevCloseFor(symbol: string, at: Date): Promise<Decimal | null> {
-    const dayMs = nyTradingDayWindow(at).from.getTime();
+    const dayMs = bucketStartMs(at.getTime(), "1D");
     const cached = prevCloses.get(symbol);
 
     if (cached !== undefined && cached.dayMs === dayMs) return await cached.value;

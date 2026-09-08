@@ -63,6 +63,17 @@ function stubMarketJobs(calls: MarketCalls, failing = false): MarketJobs {
   };
 }
 
+function failingStartMarketJobs(): MarketJobs {
+  return {
+    runSymbolRefresh: () => Promise.resolve(),
+    runCandleThinning: () => Promise.resolve(),
+    start: () => {
+      throw new Error("market jobs cannot start");
+    },
+    stop: () => undefined,
+  };
+}
+
 async function createUserId(): Promise<string> {
   const user = await prisma.user.create({
     data: { email: uniqueEmail("boot"), passwordHash: "not-a-real-hash", displayName: "Trader" },
@@ -182,6 +193,46 @@ describe("runBootTasks", () => {
 
     expect(calls.thinnings).toBe(0);
     expect(reported.some((message) => message.includes("provider unreachable"))).toBe(true);
+  });
+
+  it("marks the readiness flag once the market boot tasks have settled", async () => {
+    const markReady = vi.fn();
+    const calls: MarketCalls = { refreshes: 0, thinnings: 0, starts: 0, stops: 0 };
+
+    const tasks = await runBootTasks(config, {
+      snapshotJob: stubSnapshotJob({ ticks: 0, thinnings: 0, starts: 0, stops: 0 }),
+      pruneExpiredRefreshTokens: () => Promise.resolve(0),
+      marketJobs: stubMarketJobs(calls),
+      readiness: { isReady: () => false, markReady },
+    });
+
+    expect(markReady).not.toHaveBeenCalled();
+
+    await tasks.marketReady;
+    await Promise.resolve();
+    tasks.stop();
+
+    expect(markReady).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks the readiness flag even when the market boot tasks throw", async () => {
+    const markReady = vi.fn();
+    const reported: string[] = [];
+
+    const tasks = await runBootTasks(config, {
+      snapshotJob: stubSnapshotJob({ ticks: 0, thinnings: 0, starts: 0, stops: 0 }),
+      pruneExpiredRefreshTokens: () => Promise.resolve(0),
+      marketJobs: failingStartMarketJobs(),
+      readiness: { isReady: () => false, markReady },
+      reportError: (message) => reported.push(message),
+    });
+
+    await expect(tasks.marketReady).rejects.toThrow("market jobs cannot start");
+    await Promise.resolve();
+    tasks.stop();
+
+    expect(markReady).toHaveBeenCalledTimes(1);
+    expect(reported.some((message) => message.includes("market jobs cannot start"))).toBe(true);
   });
 
   it("reports a failing prune without throwing", async () => {

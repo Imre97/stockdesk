@@ -3,6 +3,7 @@ import { createSnapshotJob, type SnapshotJob } from "./modules/accounts/snapshot
 import type { Broadcast } from "./modules/accounts/snapshot-writer.js";
 import { deleteExpiredRefreshTokens } from "./modules/auth/repository.js";
 import type { MarketJobs } from "./modules/market/jobs.js";
+import { alwaysReady, type Readiness } from "./readiness.js";
 
 const MILLISECONDS_PER_MINUTE = 60 * 1000;
 
@@ -13,11 +14,16 @@ export interface BootDependencies {
   marketJobs: MarketJobs;
   broadcast: Broadcast;
   now: () => Date;
+  readiness: Readiness;
 }
 
 export interface BootTasks {
   marketReady: Promise<void>;
   stop: () => void;
+}
+
+function describe(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function defaultReportError(message: string): void {
@@ -44,8 +50,7 @@ export async function runBootTasks(
     try {
       await prune();
     } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      reportError(`Pruning expired refresh tokens failed: ${reason}`);
+      reportError(`Pruning expired refresh tokens failed: ${describe(error)}`);
     }
   };
 
@@ -55,7 +60,16 @@ export async function runBootTasks(
   snapshotJob.start();
 
   const marketJobs = dependencies.marketJobs;
+  const readiness = dependencies.readiness ?? alwaysReady;
   const marketReady = runMarketTasks(marketJobs, reportError);
+
+  void marketReady.then(
+    () => readiness.markReady(),
+    (error: unknown) => {
+      reportError(`The market boot tasks failed before readiness: ${describe(error)}`);
+      readiness.markReady();
+    },
+  );
 
   const timer = setInterval(() => {
     void pruneOnce();
@@ -85,7 +99,6 @@ async function runMarketTasks(
     await marketJobs.runSymbolRefresh();
     await marketJobs.runCandleThinning();
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    reportError(`Starting the market data tasks failed: ${reason}`);
+    reportError(`Starting the market data tasks failed: ${describe(error)}`);
   }
 }

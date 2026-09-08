@@ -1,6 +1,7 @@
 import { Decimal } from "@stockdesk/shared";
 import { describe, expect, it } from "vitest";
 
+import { bucketStartMs } from "../../timeframes.js";
 import type { Bar } from "../types.js";
 import { createSimulatedProvider } from "./provider.js";
 
@@ -72,10 +73,7 @@ function fiveMinuteKey(bar: Bar): string {
 }
 
 function weekKey(bar: Bar): string {
-  const offset = (bar.time.getUTCDay() + 6) % 7;
-  return new Date(
-    Date.UTC(bar.time.getUTCFullYear(), bar.time.getUTCMonth(), bar.time.getUTCDate() - offset),
-  ).toISOString();
+  return new Date(bucketStartMs(bar.time.getTime(), "1W")).toISOString();
 }
 
 describe("simulated bars", () => {
@@ -107,7 +105,7 @@ describe("simulated bars", () => {
 
     expect(bars).toHaveLength(300);
     expectSaneSeries(bars);
-    expect(at(bars, -1).time.toISOString()).toBe("2026-09-07T00:00:00.000Z");
+    expect(at(bars, -1).time.toISOString()).toBe("2026-09-07T04:00:00.000Z");
   });
 
   it("aggregates 5m candles from the 1m candles", async () => {
@@ -146,6 +144,7 @@ describe("simulated bars", () => {
     weeks.forEach((bar, index) => {
       const [key, group] = at(expected, index);
       expect(bar.time.getUTCDay()).toBe(1);
+      expect(bar.time.toISOString().endsWith("04:00:00.000Z")).toBe(true);
       expect(bar.time.toISOString()).toBe(key);
       expect({
         open: bar.open.toString(),
@@ -155,6 +154,42 @@ describe("simulated bars", () => {
         volume: bar.volume.toString(),
       }).toEqual(aggregate(group));
     });
+  });
+
+  it("aggregates a full New York day of 1m candles into that day's 1D candle", async () => {
+    const dayStart = "2026-09-07T04:00:00.000Z";
+    const dayEnd = new Date("2026-09-08T04:00:00.000Z");
+    const minutes = await provider().getBars({ symbol: "MSFT", timeframe: "1m", end: dayEnd, limit: 1440 });
+    const days = await provider().getBars({ symbol: "MSFT", timeframe: "1D", end: dayEnd, limit: 1 });
+    const day = at(days, -1);
+    const rolled = aggregate(minutes);
+
+    expect(minutes).toHaveLength(1440);
+    expect(at(minutes, 0).time.toISOString()).toBe(dayStart);
+    expect(day.time.toISOString()).toBe(dayStart);
+    expect(rolled.open).toBe(day.open.toString());
+    expect(rolled.high).toBe(day.high.toString());
+    expect(rolled.low).toBe(day.low.toString());
+    expect(rolled.close).toBe(day.close.toString());
+  });
+
+  it("aggregates a 1W candle from the seven New York days of a week that loses an hour to DST", async () => {
+    const weekStart = "2025-10-27T04:00:00.000Z";
+    const weekEnd = new Date("2025-11-03T05:00:00.000Z");
+    const days = await provider().getBars({ symbol: "MSFT", timeframe: "1D", end: weekEnd, limit: 7 });
+    const weeks = await provider().getBars({ symbol: "MSFT", timeframe: "1W", end: weekEnd, limit: 1 });
+    const week = at(weeks, -1);
+
+    expect(days).toHaveLength(7);
+    expect(at(days, 0).time.toISOString()).toBe(weekStart);
+    expect(week.time.toISOString()).toBe(weekStart);
+    expect({
+      open: week.open.toString(),
+      high: week.high.toString(),
+      low: week.low.toString(),
+      close: week.close.toString(),
+      volume: week.volume.toString(),
+    }).toEqual(aggregate(days));
   });
 
   it("returns nothing before the two year daily history", async () => {

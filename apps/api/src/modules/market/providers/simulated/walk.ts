@@ -1,6 +1,6 @@
 import { Decimal } from "@stockdesk/shared";
 
-import { DAYS_PER_YEAR, MINUTES_PER_DAY } from "./buckets.js";
+import { DAYS_PER_YEAR, MINUTES_PER_DAY, minutesInDay } from "./buckets.js";
 import { createStream } from "./prng.js";
 import type { SimulatedAsset } from "./universe.js";
 
@@ -26,6 +26,7 @@ export interface Ohlcv {
 }
 
 export interface DayModel extends Ohlcv {
+  minutes: number;
   highMinute: number;
   lowMinute: number;
 }
@@ -37,16 +38,16 @@ export interface PriceWalkOptions {
 export interface PriceWalk {
   dayClose(asset: SimulatedAsset, dayIndex: number): Decimal;
   dayModel(asset: SimulatedAsset, dayIndex: number): DayModel;
-  minuteBar(asset: SimulatedAsset, minuteIndex: number): Ohlcv;
-  minutePrice(asset: SimulatedAsset, minuteIndex: number): Decimal;
-  tickPrice(asset: SimulatedAsset, minuteIndex: number, draw: number): Decimal;
+  minuteBar(asset: SimulatedAsset, dayIndex: number, minuteOfDay: number): Ohlcv;
+  minutePrice(asset: SimulatedAsset, dayIndex: number, minuteOfDay: number): Decimal;
+  tickPrice(asset: SimulatedAsset, dayIndex: number, minuteOfDay: number, draw: number): Decimal;
 }
 
 /**
  * Three nested layers, each seeded by its own stream so any range is computable on its own:
- * a driftless geometric Brownian motion over whole days since the epoch gives every daily close,
- * a Brownian bridge over the 1440 minutes of a day joins that day's open to its close, and a
- * per-minute stream adds the wick and the volume. Minute prices are clamped into the day's own
+ * a driftless geometric Brownian motion over whole New York days since the epoch gives every daily
+ * close, a Brownian bridge over the minutes of that day (23, 24 or 25 hours of them) joins its open
+ * to its close, and a per-minute stream adds the wick and the volume. Minute prices are clamped into the day's own
  * high and low band, and the day's extremes are pinned to one minute each, so a full day of
  * minute candles aggregates back to exactly that day's candle.
  */
@@ -93,6 +94,7 @@ export function createPriceWalk({ seed }: PriceWalkOptions): PriceWalk {
 
   function dayModel(asset: SimulatedAsset, dayIndex: number): DayModel {
     return remember(dayModels, `${asset.symbol}:${dayIndex}`, DAY_MODEL_CACHE_LIMIT, () => {
+      const minutes = minutesInDay(dayIndex);
       const open = dayClose(asset, dayIndex - 1);
       const close = dayClose(asset, dayIndex);
       const stream = createStream(seed, asset.symbol, "day-shape", dayIndex);
@@ -105,9 +107,10 @@ export function createPriceWalk({ seed }: PriceWalkOptions): PriceWalk {
         high,
         low,
         close,
+        minutes,
         volume: wholeUnits(turnover),
-        highMinute: Math.floor(stream.next() * MINUTES_PER_DAY),
-        lowMinute: Math.floor(stream.next() * MINUTES_PER_DAY),
+        highMinute: Math.floor(stream.next() * minutes),
+        lowMinute: Math.floor(stream.next() * minutes),
       };
     });
   }
@@ -120,11 +123,11 @@ export function createPriceWalk({ seed }: PriceWalkOptions): PriceWalk {
       const stream = createStream(seed, asset.symbol, "minute-bridge", dayIndex);
       const sigma = minuteSigma(asset);
       const raw: Decimal[] = [ZERO];
-      for (let minute = 0; minute < MINUTES_PER_DAY; minute += 1) {
+      for (let minute = 0; minute < model.minutes; minute += 1) {
         raw.push(elementAt(raw, minute, ZERO).plus(sigma.times(new Decimal(stream.nextNormal()))));
       }
-      const correction = total.minus(elementAt(raw, MINUTES_PER_DAY, ZERO));
-      return raw.map((value, minute) => openLog.plus(value).plus(correction.times(minute).div(MINUTES_PER_DAY)));
+      const correction = total.minus(elementAt(raw, model.minutes, ZERO));
+      return raw.map((value, minute) => openLog.plus(value).plus(correction.times(minute).div(model.minutes)));
     });
   }
 
@@ -135,14 +138,11 @@ export function createPriceWalk({ seed }: PriceWalkOptions): PriceWalk {
     return clamp(price, model.low, model.high);
   }
 
-  function minutePrice(asset: SimulatedAsset, minuteIndex: number): Decimal {
-    const dayIndex = Math.floor(minuteIndex / MINUTES_PER_DAY);
-    return priceInDay(asset, dayIndex, minuteIndex - dayIndex * MINUTES_PER_DAY);
+  function minutePrice(asset: SimulatedAsset, dayIndex: number, minuteOfDay: number): Decimal {
+    return priceInDay(asset, dayIndex, minuteOfDay);
   }
 
-  function minuteBar(asset: SimulatedAsset, minuteIndex: number): Ohlcv {
-    const dayIndex = Math.floor(minuteIndex / MINUTES_PER_DAY);
-    const minuteOfDay = minuteIndex - dayIndex * MINUTES_PER_DAY;
+  function minuteBar(asset: SimulatedAsset, dayIndex: number, minuteOfDay: number): Ohlcv {
     const model = dayModel(asset, dayIndex);
     const open = priceInDay(asset, dayIndex, minuteOfDay);
     const close = priceInDay(asset, dayIndex, minuteOfDay + 1);
@@ -150,7 +150,7 @@ export function createPriceWalk({ seed }: PriceWalkOptions): PriceWalk {
     const sigma = minuteSigma(asset);
     const top = roundPrice(Decimal.max(open, close).times(ONE.plus(sigma.times(wick(stream.next())))));
     const bottom = roundPrice(Decimal.min(open, close).times(ONE.minus(sigma.times(wick(stream.next())))));
-    const share = model.volume.div(MINUTES_PER_DAY).times(volumeFactor(stream.next()));
+    const share = model.volume.div(model.minutes).times(volumeFactor(stream.next()));
 
     return {
       open,
@@ -161,10 +161,9 @@ export function createPriceWalk({ seed }: PriceWalkOptions): PriceWalk {
     };
   }
 
-  function tickPrice(asset: SimulatedAsset, minuteIndex: number, draw: number): Decimal {
-    const dayIndex = Math.floor(minuteIndex / MINUTES_PER_DAY);
+  function tickPrice(asset: SimulatedAsset, dayIndex: number, minuteOfDay: number, draw: number): Decimal {
     const model = dayModel(asset, dayIndex);
-    const base = minutePrice(asset, minuteIndex);
+    const base = minutePrice(asset, dayIndex, minuteOfDay);
     const moved = roundPrice(base.times(Decimal.exp(minuteSigma(asset).times(new Decimal(draw)))));
     return clamp(moved, model.low, model.high);
   }
