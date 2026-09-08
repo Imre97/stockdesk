@@ -13,4 +13,7 @@ server.listen(config.port, () => {
   process.stdout.write(`StockDesk API listening on port ${config.port}\n`);
 });
 
-void runBootTasks(config);
+runBootTasks(config).catch((error: unknown) => {
+  const reason = error instanceof Error ? error.message : String(error);
+  process.stderr.write(`Starting the boot tasks failed: ${reason}\n`);
+});

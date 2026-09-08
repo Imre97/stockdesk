@@ -46,8 +46,10 @@ DATABASE_URL_E2E=postgresql://stockdesk:stockdesk@localhost:5432/stockdesk_e2e
 JWT_ACCESS_SECRET=
 JWT_ACCESS_TTL=15m
 REFRESH_TOKEN_TTL_DAYS=7
+REFRESH_TOKEN_PRUNE_INTERVAL_MINUTES=60
 CORS_ORIGIN=http://localhost:5173
 WEB_DIST_DIR=../web/dist
+TRUST_PROXY_HOPS=0
 SNAPSHOT_INTERVAL_SECONDS=60
 SNAPSHOT_FINE_RETENTION_DAYS=7
 MARKET_DATA_PROVIDERS=alpaca,finnhub,simulated
@@ -63,7 +65,7 @@ QUANTITY_DECIMALS=6
 TRANSFER_LIMIT=1000000.00
 ```
 
-In production `DATABASE_URL` is the Neon pooled string (`-pooler` host) and `DIRECT_URL` the direct one; Prisma uses `directUrl` for migrations. The local development values above are for the Docker container only and are not secrets. `CORS_ORIGIN` is unused in production because web and API share an origin.
+In production `DATABASE_URL` is the Neon pooled string (`-pooler` host) and `DIRECT_URL` the direct one; Prisma uses `directUrl` for migrations. The local development values above are for the Docker container only and are not secrets. `CORS_ORIGIN` is unused in production because web and API share an origin. `TRUST_PROXY_HOPS` defaults to 1 in production and 0 elsewhere, so the auth rate limit keys on the client address behind Render's single proxy hop; `render.yaml` sets it explicitly to 1.
 
 ## Render service
 

@@ -1,16 +1,16 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const scriptPath = path.join(repoRoot, "scripts", "check-language.mjs");
 
 const LOGIN_WITH_ACCENTS = "bejelentkez\u00e9s";
 const PASSWORD_WITH_ACCENTS = "jelsz\u00f3";
-const ASCII_STOP_WORD = "hib" + "a";
+const ASCII_STOP_WORD = "\u0068iba";
 
 interface CheckResult {
   status: number | null;
@@ -18,8 +18,13 @@ interface CheckResult {
   stderr: string;
 }
 
+const createdRoots: string[] = [];
+
 function makeRoot(): string {
-  return mkdtempSync(path.join(tmpdir(), "stockdesk-language-"));
+  const root = mkdtempSync(path.join(tmpdir(), "stockdesk-language-"));
+  createdRoots.push(root);
+
+  return root;
 }
 
 function write(root: string, relativePath: string, content: string): void {
@@ -28,17 +33,38 @@ function write(root: string, relativePath: string, content: string): void {
   writeFileSync(target, content, "utf8");
 }
 
-function runCheck(root: string): CheckResult {
+function runCheck(root: string, extraEnv: Record<string, string> = {}): CheckResult {
   const result = spawnSync(process.execPath, [scriptPath], {
     cwd: repoRoot,
     encoding: "utf8",
-    env: { ...process.env, CHECK_LANGUAGE_ROOT: root },
+    env: { ...process.env, ...extraEnv, CHECK_LANGUAGE_ROOT: root },
   });
 
   return { status: result.status, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
 }
 
 describe("scripts/check-language.mjs", () => {
+  afterEach(() => {
+    while (createdRoots.length > 0) {
+      const root = createdRoots.pop();
+      if (root !== undefined) rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("scans untracked files in repository mode and honours .gitignore", () => {
+    const root = makeRoot();
+    spawnSync("git", ["init", "--quiet"], { cwd: root, encoding: "utf8" });
+    write(root, ".gitignore", "ignored/\n");
+    write(root, "docs/probe-untracked.md", `# Probe\n\n${PASSWORD_WITH_ACCENTS}\n`);
+    write(root, "ignored/skipped.md", `${PASSWORD_WITH_ACCENTS}\n`);
+
+    const result = runCheck(root, { CHECK_LANGUAGE_GIT: "1" });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("docs/probe-untracked.md:3");
+    expect(result.stderr).not.toContain("ignored/skipped.md");
+  });
+
   it("accepts a tree whose files are English only", () => {
     const root = makeRoot();
     write(root, "src/clean.ts", 'export const label = "Sign in";\n');

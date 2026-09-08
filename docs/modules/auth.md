@@ -103,7 +103,7 @@ Access token expiry does not close an already authenticated socket. Clients reco
 ## Server components
 
 - `requireAuth` middleware: verifies the Bearer JWT, sets `req.user = { id }`, otherwise `401 UNAUTHORIZED`.
-- Rate limiting on `/login` and `/register`: 10 requests per 15 minutes per IP via `express-rate-limit`, error code `RATE_LIMITED`. The default is configurable through `AUTH_RATE_LIMIT_MAX` and `AUTH_RATE_LIMIT_WINDOW_MINUTES`. The client address is taken from `TRUST_PROXY_HOPS` trusted proxy hops (`app.set("trust proxy", hops)`, never `true`); with the default 0 the socket address is used and `X-Forwarded-For` is ignored, and Render sets it to 1.
+- Rate limiting on `/login` and `/register`: 10 requests per 15 minutes per IP via `express-rate-limit`, error code `RATE_LIMITED`. The default is configurable through `AUTH_RATE_LIMIT_MAX` and `AUTH_RATE_LIMIT_WINDOW_MINUTES`. The client address is taken from `TRUST_PROXY_HOPS` trusted proxy hops (`app.set("trust proxy", hops)`, never `true`), which defaults to 1 in production and 0 elsewhere; with 0 the socket address is used and `X-Forwarded-For` is ignored. `render.yaml` still sets it explicitly to 1.
 - `helmet`, `cors` with origin from `CORS_ORIGIN`, `cookie-parser`.
 - Module files: `apps/api/src/modules/auth/{router,service,repository}.ts`, `apps/api/src/middleware/require-auth.ts`, `apps/api/src/ws/auth-handshake.ts`.
 

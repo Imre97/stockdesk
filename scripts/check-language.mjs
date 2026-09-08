@@ -33,8 +33,11 @@ function toPosix(relativePath) {
   return relativePath.split(path.sep).join("/");
 }
 
-function trackedFiles(root) {
-  const result = spawnSync("git", ["ls-files"], { cwd: root, encoding: "utf8" });
+function repositoryFiles(root) {
+  const result = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], {
+    cwd: root,
+    encoding: "utf8",
+  });
 
   if (result.status !== 0) {
     throw new Error(`git ls-files failed in ${root}: ${result.stderr ?? ""}`);
@@ -61,7 +64,9 @@ function walkFiles(root, relativeDirectory = "") {
 }
 
 function listFiles(root) {
-  const files = root === repoRoot ? trackedFiles(root) : walkFiles(root);
+  const useGit = root === repoRoot || process.env.CHECK_LANGUAGE_GIT === "1";
+  const files = useGit ? repositoryFiles(root) : walkFiles(root);
+
   return files.map(toPosix);
 }
 

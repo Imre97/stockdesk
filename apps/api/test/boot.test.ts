@@ -35,12 +35,21 @@ describe("runBootTasks", () => {
     const live = await prisma.refreshToken.create({
       data: { userId, tokenHash: "boot-live-hash", expiresAt: new Date(Date.now() + 600_000) },
     });
+    const tombstone = await prisma.refreshToken.create({
+      data: {
+        userId,
+        tokenHash: "boot-revoked-hash",
+        expiresAt: new Date(Date.now() + 600_000),
+        revokedAt: new Date(),
+      },
+    });
 
     const tasks = await runBootTasks(config);
     tasks.stop();
 
     expect(await prisma.refreshToken.findUnique({ where: { id: expired.id } })).toBeNull();
     expect(await prisma.refreshToken.findUnique({ where: { id: live.id } })).not.toBeNull();
+    expect(await prisma.refreshToken.findUnique({ where: { id: tombstone.id } })).not.toBeNull();
   });
 
   it("prunes again on the configured interval and stops on request", async () => {
@@ -81,5 +90,6 @@ describe("runBootTasks", () => {
 
     expect(reported).toHaveLength(1);
     expect(reported[0]).toContain("refresh tokens");
+    expect(reported[0]).toContain("database unreachable");
   });
 });

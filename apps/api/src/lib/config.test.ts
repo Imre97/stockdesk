@@ -76,11 +76,21 @@ describe("loadConfig", () => {
     );
   });
 
-  it("defaults TRUST_PROXY_HOPS to 0", () => {
-    const config = loadConfig(baseEnv);
+  it("defaults TRUST_PROXY_HOPS to 0 outside production", () => {
+    expect(loadConfig(baseEnv).trustProxyHops).toBe(0);
+    expect(loadConfig({ ...baseEnv, NODE_ENV: "development" }).trustProxyHops).toBe(0);
+    expect(typeof loadConfig(baseEnv).trustProxyHops).toBe("number");
+  });
 
-    expect(config.trustProxyHops).toBe(0);
-    expect(typeof config.trustProxyHops).toBe("number");
+  it("defaults TRUST_PROXY_HOPS to 1 in production", () => {
+    expect(baseEnv.TRUST_PROXY_HOPS).toBeUndefined();
+    expect(loadConfig({ ...baseEnv, NODE_ENV: "production" }).trustProxyHops).toBe(1);
+  });
+
+  it("lets an explicit TRUST_PROXY_HOPS override the environment default", () => {
+    expect(loadConfig({ ...baseEnv, NODE_ENV: "production", TRUST_PROXY_HOPS: "0" }).trustProxyHops).toBe(0);
+    expect(loadConfig({ ...baseEnv, NODE_ENV: "production", TRUST_PROXY_HOPS: "3" }).trustProxyHops).toBe(3);
+    expect(loadConfig({ ...baseEnv, TRUST_PROXY_HOPS: "3" }).trustProxyHops).toBe(3);
   });
 
   it("parses a provided TRUST_PROXY_HOPS", () => {

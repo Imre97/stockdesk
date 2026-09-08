@@ -26,8 +26,9 @@ export async function runBootTasks(
   const pruneOnce = async (): Promise<void> => {
     try {
       await prune();
-    } catch {
-      reportError("Pruning expired refresh tokens failed.");
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      reportError(`Pruning expired refresh tokens failed: ${reason}`);
     }
   };
 

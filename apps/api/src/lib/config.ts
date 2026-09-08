@@ -14,7 +14,7 @@ const environmentSchema = z.object({
   WEB_DIST_DIR: z.string().min(1).default("../web/dist"),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   AUTH_RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
-  TRUST_PROXY_HOPS: z.coerce.number().int().nonnegative().default(0),
+  TRUST_PROXY_HOPS: z.coerce.number().int().nonnegative().optional(),
 });
 
 export interface AppConfig {
@@ -47,6 +47,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   }
 
   const values = parsed.data;
+  const isProduction = values.NODE_ENV === "production";
 
   return {
     nodeEnv: values.NODE_ENV,
@@ -62,8 +63,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     webDistDir: values.WEB_DIST_DIR,
     authRateLimitMax: values.AUTH_RATE_LIMIT_MAX,
     authRateLimitWindowMinutes: values.AUTH_RATE_LIMIT_WINDOW_MINUTES,
-    trustProxyHops: values.TRUST_PROXY_HOPS,
-    isProduction: values.NODE_ENV === "production",
+    trustProxyHops: values.TRUST_PROXY_HOPS ?? (isProduction ? 1 : 0),
+    isProduction,
   };
 }
 
