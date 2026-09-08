@@ -13,3 +13,4 @@ One report per module review run, produced by `/module-review <module>`. Newest 
 | 2026-09-08 | dashboard | BLOCKED | 2 | [2026-09-08-dashboard.md](2026-09-08-dashboard.md) |
 | 2026-09-08 | dashboard | BLOCKED | 1 | [2026-09-08-dashboard-2.md](2026-09-08-dashboard-2.md) |
 | 2026-09-08 | dashboard | PASS WITH SHOULD-FIX | 0 | [2026-09-08-dashboard-3.md](2026-09-08-dashboard-3.md) |
+| 2026-09-08 | market-data | BLOCKED | 4 | [2026-09-08-market-data.md](2026-09-08-market-data.md) |

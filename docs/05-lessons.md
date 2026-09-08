@@ -87,6 +87,30 @@ Format: `L-<n>` id, source module and date, what happened, the rule, where it ap
 - Rule: for every page that combines two sources of state (a form selection and a global active item, a cache and a store, a socket and a store), write the seam down as an invariant in the spec pre-review and add one test that crosses the seam (or an e2e case), before the module review.
 - Applies to: spec pre-review (L-1), web feature prompts.
 
+### L-14 Fixtures for a mapper come from the serializer's real output
+
+- Source: market-data, 2026-09-08. The API serialized `dividendYield` as a fraction (`"0.0130"`); the web mapper test used a made-up fixture (`"1.25"`) that looked like a percentage, so `formatChangePercent` produced the "right" string in the test and `0.01%` on the page. Both sides were green.
+- Rule: when a web mapper consumes an API field, the test fixture is copied from the API's own test output or from the serialization decision recorded in the spec (places and unit), never invented. Units (fraction versus percent, millions versus full) are written into the spec's serialization list before either side is implemented.
+- Applies to: web mapper tests, spec pre-review (record units next to decimal places).
+
+### L-15 A changed definition needs a sweep of every consumer of the old arithmetic
+
+- Source: market-data, 2026-09-08. Daily buckets moved from UTC midnight to New York midnight stepped through the calendar, but `candles.ts` still decided bucket completeness with the fixed `timeframeDurationMs`, so a finished February `1M` bar was dropped as incomplete while its interval was marked covered.
+- Rule: when a fix changes how a value is defined (bucket start, day boundary, rounding, identifier), the fix prompt lists every consumer of the old helper (`grep` for the helper and for hand-written equivalents) and each one gets a test at the divergent case (a 28-day month, a 25-hour day). Marking coverage and storing bars must move together: nothing is marked covered that was not stored.
+- Applies to: fix prompts (L-2), time and calendar code, cache invariants.
+
+### L-16 Phase size predicts test-first slippage
+
+- Source: market-data, 2026-09-08. The seven-part Phase C agent reported honestly that parts 2 to 7 were implemented before their integration tests and proven afterwards with negative-control runs; every smaller phase (A, B1, B2, D, G1) stayed red-green throughout.
+- Rule: an implementation phase given to one agent covers at most three or four related parts and one test layer; the prompt asks for the first failing assertion per part and the report is checked for it. When a phase grows past that, split it before launching.
+- Applies to: the coordinating session, agent prompts.
+
+### L-17 Test harness order: prepare the database where the server is started
+
+- Source: market-data, 2026-09-08. Playwright boots the web servers before `globalSetup`, so the API seeded the symbol master at boot and the global setup truncated it, leaving the e2e run without symbols (the same ordering that produced TD-22's noise).
+- Rule: anything the server needs at boot is prepared inside the web server command (migrate, truncate) before the server starts, and the global setup only waits for a readiness signal (`GET /api/v1/health` `ready: true`). The parent process holds the original environment, so guards that compare database URLs run in the Playwright config, not in the child command.
+- Applies to: `apps/e2e/playwright.config.ts`, `prepare-database.ts`, `global-setup.ts`, every job that seeds data at boot.
+
 ## Record of module cycles
 
 | Module | Date | Review rounds | Blockers found | Root causes |
