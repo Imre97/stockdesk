@@ -75,7 +75,7 @@ In production `DATABASE_URL` is the Neon pooled string (`-pooler` host) and `DIR
 
 Defined in `render.yaml` at the repository root (Render Blueprint), created with the Module 1 scaffold:
 
-- Type: Web Service, runtime Node 20, plan free, region Frankfurt.
+- Type: Web Service, runtime Node 22, plan free, region Frankfurt.
 - Build command: `npm ci && npm run build`
   (root script builds `packages/shared`, then `apps/web`, then `apps/api`, and runs `prisma generate`).
 - Pre-deploy command: `npm run db:migrate:deploy` (`prisma migrate deploy` with `DIRECT_URL`).
