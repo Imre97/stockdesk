@@ -30,6 +30,7 @@ Format: `L-<n>` id, source module and date, what happened, the rule, where it ap
 - Rule: fixtures must be unique per test (random suffix, never a fixed email). While a subagent owns a test run, keep the turn open or accept that hook output is noise; a failure counts only when it reproduces in a solo run.
 - Applies to: the coordinating session, `apps/api/test/helpers.ts` fixtures.
 - Update 2026-09-08 (dashboard): the collision recurred six more times during Module 2 (TRUNCATE deadlocks, `Expected at least one account`, spurious 500s). Registered as TD-30: the hook should skip when another vitest run holds a repo-local lock. Fix it before Module 3 starts.
+- Update 2026-09-08 (market-data): TD-30 closed the hook collision, and a second source of the same symptom appeared inside one file: a test emitted a simulated tick whose aggregator write was never awaited, the next test truncated the tables, and the write landed afterwards (`falls back to the newest cached candle close` failed in two of five full runs, never solo). Rule extension: every runtime, server or job a test builds is registered and stopped in `afterEach` (`stop()` awaits in-flight writes); a test that emits a tick awaits `flush()` before it ends.
 
 ### L-5 Tests first, with first-failure evidence, stays mandatory
 
