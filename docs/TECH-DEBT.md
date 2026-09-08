@@ -3,10 +3,10 @@
 Last updated: 2026-09-08
 
 ## Summary
-- Open: 22 (high 0, medium 6, low 16)
-- Fixed since last update: 0
-- Trend: Module 2 closed with three review rounds and zero blockers on the final pass; the remaining medium items are the two session-reset follow-ups from dashboard-3 (settings-cache overwrite, WebSocket not disconnected on reset) plus the market-data broadcast/query efficiency items carried over from dashboard.
-- Recommended next: TD-30 (shared test-database lock before Module 3 work starts), TD-31 (settings cache overwritten on unhydrated reset), TD-32 (`account_summary` socket not disconnected on session reset) — first task of Module 3.
+- Open: 18 (high 0, medium 4, low 14)
+- Fixed since last update: 4 (TD-30, TD-31, TD-32, TD-33 in Module 3 Phase 0)
+- Trend: the four "before Module 3" items are closed in one commit; the remaining medium items are the market-data efficiency items (TD-26 heartbeat, TD-28 snapshot query) plus TD-4 and TD-5.
+- Recommended next: TD-24, TD-26, TD-5, TD-34, TD-35 are scheduled inside Module 3 (spec decision 1); TD-28 deferred to Module 4.
 
 ## Open
 | Id | Area | Summary | Impact | Effort | Timing | Source | Status |
@@ -27,10 +27,6 @@ Last updated: 2026-09-08
 | TD-27 | api | `apps/api/src/modules/accounts/deposits.ts:55` recomputes account summaries via `summarizeAccounts` after `afterCashChange` already built them in the snapshot writer, one redundant `referenceEquities` round trip per deposit | low | S | now | docs/reviews/2026-09-08-dashboard.md | open |
 | TD-28 | api | `apps/api/src/modules/accounts/snapshot-writer.ts` issues one `referenceEquities` query per user per tick and broadcasts to users with no open sockets; `listAllAccounts()` (`repository.ts:66`) loads every account of every user each tick with no paging | medium | M | module: market-data | docs/reviews/2026-09-08-dashboard.md | open |
 | TD-29 | api | `CashTransaction.@@index([accountId, createdAt])` (`schema.prisma:69`) omits `id`, while the ledger keyset page orders by `(createdAt desc, id desc)` | low | S | module: portfolio | docs/reviews/2026-09-08-dashboard.md | open |
-| TD-30 | infra | `scripts/hooks/run-tests.mjs` Stop hook and a subagent's vitest run can hit the shared `stockdesk_test` database concurrently, causing TRUNCATE deadlocks and spurious 500/404s (observed 5+ times on 2026-09-08); needs a repo-local lock file written by the api vitest `globalSetup` and honored by the hook, or a hook flag to skip when another vitest process is running | low | S | before Module 3 | docs/reviews/2026-09-08-dashboard.md | open |
-| TD-31 | web | `resetClientState` (`apps/web/src/features/auth/session-reset.ts:20`) calls `useSettingsStore.reset()`, which routes through `change()` and persists in-memory defaults over the cached `{language, theme}` whenever the store was never hydrated (login page, anonymous boot, failed login), so a hu/dark user loses the preference until the next successful login; fix by patching only `defaultAccountId` in the cache or hydrating before reset | medium | S | before Module 3 starts | docs/reviews/2026-09-08-dashboard-3.md | open |
-| TD-32 | web | The `account_summary` WebSocket (`apps/web/src/features/shell/hooks.ts:78-92`) is closed only by layout unmount, so a message arriving between `resetClientState` and the `/login` navigation can repopulate the outgoing user's accounts via `applyAccountSummary`; disconnect explicitly in the session reset (L-12 invariant) | medium | M | before Module 3 starts | docs/reviews/2026-09-08-dashboard-3.md | open |
-| TD-33 | web | Duplicate reset call sites: `useLogout` (`apps/web/src/features/auth/hooks.ts:32-33`) calls `resetClientState` a second time after `clearSession` already resets; keep one call site so logout and expiry paths cannot diverge | low | S | before Module 3 starts | docs/reviews/2026-09-08-dashboard-3.md | open |
 | TD-34 | web | Query keys such as `["settings"]` (`apps/web/src/features/settings/sync.ts:13-20`) are not user-scoped; keying by user id would make the cache self-invalidate and remove the reliance on `queryClient.clear()` ordering | low | S | module: market-data | docs/reviews/2026-09-08-dashboard-3.md | open |
 | TD-35 | e2e | No e2e coverage for a second user logging in within the same tab, or for preference survival after an expired session | low | S | module: market-data | docs/reviews/2026-09-08-dashboard-3.md | open |
 
@@ -50,3 +46,7 @@ Last updated: 2026-09-08
 | TD-15 | api | The refresh-reuse race test repeated 5 iterations at bcrypt cost 12 | `249ab11` (`apps/api/test/auth.refresh.test.ts:58` loops 2 iterations) | 2026-09-08 |
 | TD-7 | api | `RefreshToken` rows were never pruned; every login/refresh inserted a row and only flipped `revokedAt`, unbounded growth on Neon free | `6bfe977` (`repository.ts:91-95,126`, `server.ts:22`, test `auth.refresh.test.ts:78`) | 2026-09-08 |
 | TD-8 | api | `RefreshToken` had no index on `userId`, but reuse detection and cascade delete both filter by it | `6bfe977` (migration `20260908084827_refresh_token_user_index`) | 2026-09-08 |
+| TD-30 | infra | Stop hook and a subagent's vitest run hit the shared `stockdesk_test` database concurrently | `0225027` (`scripts/hooks/test-lock.mjs`, `apps/api/test/global-setup.ts` writes `.vitest-api.lock`, `run-tests.mjs` skips the api workspace while the lock is held by a live pid) | 2026-09-08 |
+| TD-31 | web | `resetClientState` persisted in-memory defaults over the cached language and theme when the settings store was never hydrated | `0225027` (`apps/web/src/features/settings/store.ts` `reset()` patches only `defaultAccountId` via `patchCachedSettings`) | 2026-09-08 |
+| TD-32 | web | `account_summary` socket closed only by layout unmount, so a late message could repopulate the outgoing user's accounts | `0225027` (`apps/web/src/lib/ws-session.ts` singleton, `resetClientState` calls `wsSession.disconnect()` first, cross-seam test in `session-reset.test.ts`) | 2026-09-08 |
+| TD-33 | web | Duplicate `resetClientState` call sites in `useLogout` and `clearSession` | `0225027` (`useLogout` no longer resets; `clearSession` → `resetSessionState` is the single path) | 2026-09-08 |
