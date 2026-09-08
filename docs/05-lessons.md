@@ -68,8 +68,14 @@ Format: `L-<n>` id, source module and date, what happened, the rule, where it ap
 - Rule: when adding or changing an ESLint rule, probe one file per glob it should cover and one it should not, and record the probe result in the report.
 - Applies to: `eslint.config.js` changes.
 
+### L-11 Review rounds have a stop condition
+
+- Source: auth, 2026-09-08. The module reached `PASS` in round 4. Rounds 5 and 6 reviewed a tech-debt burn round, and each produced new should-fix and nice-to-have items that triggered another fix round. Every review finds something; answering every finding with a fix round is an unbounded loop.
+- Rule: per module, at most one implementation review, one fix round, and one confirming review. Once a module is `implemented`, a delta review (after a tech-debt round or a small follow-up) triggers a fix round only for blockers; should-fix and nice-to-have items go straight into `docs/TECH-DEBT.md` with a timing. Tech-debt rounds get no dedicated review; the next module's review covers them. If a module still has a blocker after the third round, stop and discuss with the user instead of scheduling round four.
+- Applies to: the coordinating session, `.claude/skills/module-review/SKILL.md`.
+
 ## Record of module cycles
 
 | Module | Date | Review rounds | Blockers found | Root causes |
 |--------|------|---------------|----------------|-------------|
-| auth | 2026-09-08 | 4 (BLOCKED, PASS WITH SHOULD-FIX, BLOCKED, PASS) | 3 | L-6, L-7, L-2 with L-9 |
+| auth | 2026-09-08 | 4 to `implemented` (BLOCKED, PASS WITH SHOULD-FIX, BLOCKED, PASS), then 2 delta rounds on the tech-debt burn that should not have triggered fix rounds | 3 | L-6, L-7, L-2 with L-9; loop: L-11 |

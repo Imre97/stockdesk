@@ -3,9 +3,9 @@
 Last updated: 2026-09-08
 
 ## Summary
-- Open: 6 (high 0, medium 2, low 4)
-- Fixed since last update: 9
-- Trend: the tech-debt burn round (`249ab11`) closed all nine items it targeted with verifiable code and tests (language guard, payload limit, dead exports, trust-proxy config, typed rotation callback, testable boot tasks, lint scope, refresh-race test trim); remaining open items are UI polish, deferred i18n/static-serving coverage, and two low-impact auth edge cases documented in the fourth auth review.
+- Open: 9 (high 0, medium 2, low 7)
+- Fixed since last update: 0
+- Trend: sixth auth review (PASS) added three low items from the language guard and boot tasks; per L-11 they are registered instead of fixed. No open medium item blocks Module 2.
 - Recommended next: TD-3 (auth forms need a centered card, blocks Module 2's design-token work), TD-4 (production static-serving path still untested end to end), TD-5 (i18n locale catalogs still statically bundled).
 
 ## Open
@@ -17,6 +17,9 @@ Last updated: 2026-09-08
 | TD-5 | web | `apps/web/src/i18n/index.ts` statically imports every locale catalog into the main chunk; grows with each namespace | medium | S | module: next module that adds a namespace | docs/reviews/2026-09-08-auth.md | open |
 | TD-16 | api | Logout presented with an already-rotated cookie returns `204` while the successor session survives; documented no-op, but a client with a stale cookie gets a silent logout that doesn't logout | low | S | later | docs/reviews/2026-09-08-auth-4.md | open |
 | TD-17 | api | Revoked refresh-token tombstones live until `expiresAt`, so per-user row count grows with rotation frequency inside one TTL window | low | S | later | docs/reviews/2026-09-08-auth-4.md | open |
+| TD-18 | api | Boot-task scheduling failure (`server.ts` `.catch`) logs to stderr and keeps serving with no prune timer installed, so token-row growth resumes silently until the next deploy; decide between exit non-zero and retry | low | S | later | docs/reviews/2026-09-08-auth-6.md | open |
+| TD-19 | infra | Language guard repo mode is selected by `root === repoRoot` or the test-only `CHECK_LANGUAGE_GIT` flag; detect a `.git` root instead and drop the env hook | low | S | later | docs/reviews/2026-09-08-auth-6.md | open |
+| TD-20 | infra | `check-language.test.ts` ignores the `git init` exit status; an absent git surfaces as a missing-substring assertion instead of a clear failure | low | S | later | docs/reviews/2026-09-08-auth-6.md | open |
 
 ## Closed
 | Id | Area | Summary | Fixed in | Closed on |

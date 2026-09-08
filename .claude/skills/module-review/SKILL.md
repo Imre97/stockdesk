@@ -34,6 +34,7 @@ Unless `--quick`: spawn the `tech-debt-auditor` agent pointing at the new report
 
 - Verdict `PASS`: set the module status to `implemented` in `docs/00-overview.md` if the user asked for the status change, otherwise say the module is eligible.
 - Verdict `PASS WITH SHOULD-FIX` or `BLOCKED`: leave the status; list the blockers and should-fix items as the next tasks.
+- Stop condition (`docs/05-lessons.md` L-11): a module gets at most one implementation review, one fix round, and one confirming review. When the module is already `implemented`, only blockers trigger a fix round; should-fix and nice-to-have items are registered in `docs/TECH-DEBT.md` with a timing and no further round is scheduled.
 
 ## 6. Lessons
 
