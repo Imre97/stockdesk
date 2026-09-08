@@ -24,7 +24,7 @@ Single role. Every registered user is a trader who owns one or more isolated tra
 
 ## Backlog (no module yet)
 
-Withdrawals (simulated cash out), account deletion or archiving, PDF statements, allocation charts by sector, watchlists, price alerts, yahoo provider adapter.
+Withdrawals (simulated cash out), account deletion or archiving, PDF statements, allocation charts by sector, watchlists, price alerts, yahoo provider adapter, custom domain, uptime monitoring, keep-alive ping for the free hosting tier.
 
 ## Out of scope
 

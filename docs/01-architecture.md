@@ -9,7 +9,9 @@
 | Client state | Zustand, one store per domain | Small API, no boilerplate, works outside React for tests |
 | Server cache | TanStack Query for request/response data where caching helps | Standard fetching layer; live WS data goes to Zustand instead |
 | Backend | Express 5 + TypeScript | Requested, widely known, WebSocket integration straightforward |
-| Database | SQLite via Prisma | Zero infrastructure for a demo; schema portable to PostgreSQL later |
+| Database | PostgreSQL 16 via Prisma, everywhere: Docker Compose locally, Neon free tier in production | One engine in dev, test, and prod; native `numeric` for money; Render's free disk is ephemeral so the database must be external |
+| Hosting | Render free Web Service runs the API and serves the web build from one origin; Neon holds the database. Details in `04-deployment.md` | Free, deploys from GitHub on push, WebSocket supported; single origin avoids cross-site cookies |
+| Sleep tolerance | The server may be suspended for hours (free tier). Jobs snapshot at boot, expire overdue orders at boot, clients reconnect with backoff | Correct behavior after every wake without manual steps |
 | Realtime | `ws` on server, native `WebSocket` on client | Minimal dependency, full control over protocol |
 | Market data | Capability-based provider layer: Alpaca free plan (IEX real-time trade stream, historical bars, asset list), Finnhub free tier (company profile, market cap, metrics), simulated (all capabilities, offline). Composite router picks the first healthy provider per capability | Finnhub free tier has no stock candles; Alpaca covers stream and history; demo always runs without keys |
 | Orders | Market, limit, stop, stop-limit; optional stop-loss and take-profit brackets as OCO children | Matches common broker order tickets |
@@ -46,6 +48,9 @@ stockdesk/
 │           └── lib/          # config, errors, logger
 ├── packages/
 │   └── shared/               # zod schemas, types, Decimal setup
+├── infra/postgres/init.sql   # creates the test database in the local container
+├── docker-compose.yml        # local PostgreSQL
+├── render.yaml               # Render blueprint (created with the Module 1 scaffold)
 └── docs/
 ```
 
@@ -56,18 +61,29 @@ Browser -- http://localhost:5173 -- Vite dev server (apps/web)
    |                                    | proxy /api and /ws
    +-- WebSocket ---------------------> Express + ws (apps/api, :3000)
                                             |
-                                            +-- SQLite (dev.db)
+                                            +-- PostgreSQL (Docker, localhost:5432)
                                             +-- Market data providers (composite)
                                                  +-- Alpaca wss://stream.data.alpaca.markets/v2/iex, https://data.alpaca.markets
                                                  +-- Finnhub https://finnhub.io/api/v1 (profile, metrics)
                                                  +-- Simulated random walk
 ```
 
+## Runtime topology (production)
+
+```
+Browser ── https://stockdesk.onrender.com ── Render Web Service (Express)
+                                              ├── /            static web build (SPA fallback)
+                                              ├── /api/v1/*    REST
+                                              ├── /ws          WebSocket
+                                              ├── Neon PostgreSQL (pooled connection)
+                                              └── Market data providers
+```
+
 ## Cross-cutting protocols
 
 ### HTTP API
 
-Base path `/api/v1`. JSON only. Error envelope:
+Base path `/api/v1`. JSON only. `GET /api/v1/health` is public and used by the hosting health check. Error envelope:
 
 ```json
 { "error": { "code": "STRING_CODE", "message": "Human readable", "details": {} } }

@@ -145,13 +145,18 @@ Minimal. Design system decision deferred to a later module.
 `.env.example`:
 
 ```
-DATABASE_URL="file:./dev.db"
+NODE_ENV=development
+PORT=3000
+DATABASE_URL=postgresql://stockdesk:stockdesk@localhost:5432/stockdesk
+DIRECT_URL=postgresql://stockdesk:stockdesk@localhost:5432/stockdesk
+DATABASE_URL_TEST=postgresql://stockdesk:stockdesk@localhost:5432/stockdesk_test
 JWT_ACCESS_SECRET=
 JWT_ACCESS_TTL=15m
 REFRESH_TOKEN_TTL_DAYS=7
 CORS_ORIGIN=http://localhost:5173
-PORT=3000
 ```
+
+This module also adds `GET /api/v1/health` (public): `200 { "status": "ok", "database": "ok" }`, `503` with `"database": "unreachable"` when the database query fails. Later modules extend the payload.
 
 ## Acceptance criteria
 
@@ -167,6 +172,6 @@ PORT=3000
 
 ## Tests
 
-- API integration (Vitest + supertest, dedicated SQLite test database): one test per acceptance criterion 1 to 6 and 9.
+- API integration (Vitest + supertest, `stockdesk_test` PostgreSQL database in Docker): one test per acceptance criterion 1 to 6 and 9, plus a health endpoint test.
 - Shared: unit tests for `registerSchema`, `loginSchema`, `decimalString`, `toApiString`.
 - Web: auth store unit tests without React; `lib/http.ts` refresh-queue test; `LoginForm` render test with Testing Library.

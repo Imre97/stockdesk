@@ -8,6 +8,7 @@ Configured in `.claude/settings.json`, scripts in `scripts/hooks/`.
 
 | Event | Script | What it does | On failure |
 |-------|--------|--------------|------------|
+| Before every `Bash` call that runs `git commit` | `scripts/hooks/check-secrets.mjs` | Scans staged files for secret patterns (API keys, tokens, private keys, JWTs, connection strings with passwords, assigned secret values) and refuses any staged `.env` file other than `.env.example`. | Blocks the command and prints the file, line, and pattern name. |
 | After every `Edit` or `Write` | `scripts/hooks/lint-file.mjs` | Runs ESLint with `--fix` on the edited `.ts`/`.tsx` file, then re-checks. Skips non-source files and runs silently when ESLint is not installed yet. | Prints the ESLint output back to the assistant, which must fix it before moving on. |
 | When the assistant finishes a turn (`Stop`) | `scripts/hooks/run-tests.mjs` | Runs `vitest run` in every workspace that has changed files since the last successful run. Skips when no workspace exists. | Blocks the stop and feeds the failing test output back so the turn continues with a fix. |
 

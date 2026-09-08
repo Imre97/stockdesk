@@ -10,7 +10,7 @@ Included:
 
 - Market data provider layer with capability-based routing: Alpaca (real-time IEX trade stream, historical bars, asset list), Finnhub (company profile, market cap, key metrics), simulated (every capability, offline).
 - Symbol master table seeded from the provider, powering fast local search.
-- Candle cache in SQLite, filled from the provider on demand, live-updated from the trade stream.
+- Candle cache in PostgreSQL, filled from the provider on demand, live-updated from the trade stream, capped at 5000 rows per symbol and timeframe by the daily thinning job.
 - Price service used by other modules: last price, previous close, market status.
 - WebSocket channels: `quotes` (live trades per symbol), `bars` (live candle updates), `market_status`.
 - REST: symbol search, symbol detail, bars, market status, per-symbol trade history contract.

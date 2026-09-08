@@ -115,6 +115,7 @@ Constraints:
 - Snapshot job: `apps/api/src/modules/accounts/snapshot-job.ts`, started from the server entry point, stoppable for tests.
 - Retention: 1-minute points kept 7 days, then thinned to one point per hour, kept 400 days. Thinning runs once per day. Values documented in `.env.example` (`SNAPSHOT_INTERVAL_SECONDS`, `SNAPSHOT_FINE_RETENTION_DAYS`).
 - The snapshot job is the single writer of the `account_summary` WebSocket message.
+- Sleep tolerance (free hosting suspends the process when idle): the job takes one snapshot for every account immediately at boot, then continues on its interval. Gaps in the series are expected; the equity endpoint returns only existing points and the chart draws them without interpolation. No backfill is attempted, because the equity during the gap is unknown.
 
 ## API
 

@@ -207,7 +207,8 @@ model Position {
 - Processing is serialized per symbol with an async queue so two ticks never race on the same orders. Each fill runs in one Prisma transaction: order status, trade, position, cash transaction, account cash, bracket children creation, OCO sibling cancel, child quantity adjustment. The equity snapshot and WebSocket broadcasts happen after commit.
 - A newly placed `MARKET` order is evaluated immediately against the last known price if the market is open; otherwise it waits for the next tick.
 - `ensureStreaming` from the price service is called for every symbol that has open orders or open positions, so ticks keep flowing for them even without a symbol page open.
-- `expiry-job.ts` runs every minute and expires `DAY` orders whose `expiresAt` has passed, releasing reservations.
+- `expiry-job.ts` runs at boot and then every minute, expiring `DAY` orders whose `expiresAt` has passed and releasing reservations. Running at boot covers the case where the process was suspended by the hosting platform over the expiry time.
+- Demo limitation, documented in the UI help text: resting orders fill only while the server process is awake. After a suspension the engine evaluates all open orders against the first tick after wake; it does not reconstruct fills that would have happened during the gap.
 - The engine exposes `processTick(trade)` and `placeOrder(command)` as pure service methods so tests drive it without timers or sockets.
 
 ## API
