@@ -1,0 +1,61 @@
+services:
+  - type: web
+    name: stockdesk
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    autoDeploy: true
+    buildCommand: npm ci && npm run build
+    preDeployCommand: npm run db:migrate:deploy
+    startCommand: npm run start --workspace @stockdesk/api
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"
+      - key: PORT
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: DATABASE_URL_TEST
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_ACCESS_TTL
+        sync: false
+      - key: REFRESH_TOKEN_TTL_DAYS
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: WEB_DIST_DIR
+        sync: false
+      - key: SNAPSHOT_INTERVAL_SECONDS
+        sync: false
+      - key: SNAPSHOT_FINE_RETENTION_DAYS
+        sync: false
+      - key: MARKET_DATA_PROVIDERS
+        sync: false
+      - key: ALPACA_API_KEY
+        sync: false
+      - key: ALPACA_API_SECRET
+        sync: false
+      - key: ALPACA_DATA_FEED
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: COMMISSION_PER_ORDER
+        sync: false
+      - key: MARKET_ORDER_BUFFER
+        sync: false
+      - key: SHORT_MARGIN_RATE
+        sync: false
+      - key: MAINTENANCE_MARGIN_RATE
+        sync: false
+      - key: QUANTITY_DECIMALS
+        sync: false
+      - key: TRANSFER_LIMIT
+        sync: false

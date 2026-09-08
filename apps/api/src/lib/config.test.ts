@@ -1,0 +1,49 @@
+import { describe, expect, it } from "vitest";
+import { loadConfig } from "./config.js";
+
+const baseEnv: NodeJS.ProcessEnv = {
+  NODE_ENV: "test",
+  PORT: "3000",
+  DATABASE_URL: "postgresql://stockdesk:stockdesk@localhost:5432/stockdesk",
+  DIRECT_URL: "postgresql://stockdesk:stockdesk@localhost:5432/stockdesk",
+  DATABASE_URL_TEST: "postgresql://stockdesk:stockdesk@localhost:5432/stockdesk_test",
+  JWT_ACCESS_SECRET: "test-secret",
+  CORS_ORIGIN: "http://localhost:5173",
+};
+
+describe("loadConfig", () => {
+  it("parses a valid environment", () => {
+    const config = loadConfig(baseEnv);
+
+    expect(config.nodeEnv).toBe("test");
+    expect(config.port).toBe(3000);
+    expect(config.databaseUrl).toBe(baseEnv.DATABASE_URL);
+    expect(config.jwtAccessSecret).toBe("test-secret");
+    expect(config.corsOrigin).toBe("http://localhost:5173");
+  });
+
+  it("throws when JWT_ACCESS_SECRET is missing", () => {
+    const { JWT_ACCESS_SECRET: _removed, ...withoutSecret } = baseEnv;
+
+    expect(() => loadConfig(withoutSecret)).toThrowError(/JWT_ACCESS_SECRET/);
+  });
+
+  it("throws when PORT is not a number", () => {
+    expect(() => loadConfig({ ...baseEnv, PORT: "not-a-port" })).toThrowError(/PORT/);
+  });
+
+  it("defaults JWT_ACCESS_TTL to 15m", () => {
+    expect(loadConfig(baseEnv).jwtAccessTtl).toBe("15m");
+  });
+
+  it("defaults REFRESH_TOKEN_TTL_DAYS to the number 7", () => {
+    const config = loadConfig(baseEnv);
+
+    expect(config.refreshTokenTtlDays).toBe(7);
+    expect(typeof config.refreshTokenTtlDays).toBe("number");
+  });
+
+  it("defaults WEB_DIST_DIR to the web build output", () => {
+    expect(loadConfig(baseEnv).webDistDir).toBe("../web/dist");
+  });
+});

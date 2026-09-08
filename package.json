@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "Paper-trading demo: React + Vite web, Express API, real-time prices over WebSocket",
+  "type": "module",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -11,8 +12,33 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "echo \"Scaffold apps/web and apps/api first\"",
-    "test": "echo \"No workspaces yet\"",
-    "lint": "echo \"No workspaces yet\""
+    "dev": "npm run build:shared && concurrently -n shared,api,web -c blue,green,magenta \"npm:dev:shared\" \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:shared": "npm run dev --workspace @stockdesk/shared",
+    "dev:api": "npm run dev --workspace @stockdesk/api",
+    "dev:web": "npm run dev --workspace @stockdesk/web",
+    "build": "npm run build:shared && npm run build:web && npm run build:api && npm run db:generate",
+    "build:shared": "npm run build --workspace @stockdesk/shared",
+    "build:web": "npm run build --workspace @stockdesk/web",
+    "build:api": "npm run build --workspace @stockdesk/api",
+    "start": "npm run start --workspace @stockdesk/api",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm test --workspaces --if-present -- --watch=false",
+    "db:generate": "prisma generate --schema apps/api/prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema apps/api/prisma/schema.prisma",
+    "db:migrate:deploy": "prisma migrate deploy --schema apps/api/prisma/schema.prisma",
+    "db:studio": "prisma studio --schema apps/api/prisma/schema.prisma",
+    "postinstall": "prisma generate --schema apps/api/prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "concurrently": "^9.0.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-i18next": "^6.0.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "globals": "^15.0.0",
+    "prisma": "^6.0.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.0.0"
   }
 }

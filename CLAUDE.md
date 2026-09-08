@@ -34,14 +34,19 @@ Details: `docs/01-architecture.md`. Conventions: `docs/02-conventions.md`. Deplo
 
 ## Commands
 
-Filled in as workspaces are scaffolded.
-
 ```
-docker compose up -d     # local PostgreSQL (stockdesk + stockdesk_test databases)
-npm install
-npm run dev              # web + api concurrently
-npm test
-npm run lint
+docker compose up -d       # local PostgreSQL (stockdesk + stockdesk_test databases)
+npm install                # installs workspaces and runs prisma generate
+npm run dev                # shared watch + api (:3000) + web (:5173) concurrently
+npm run build              # shared -> web -> api -> prisma generate
+npm start                  # node apps/api/dist/server.js
+npm run lint               # eslint . (flat config at the repository root)
+npm run typecheck          # tsc --noEmit in every workspace
+npm test -- --run          # vitest in every workspace
+npm run db:migrate         # prisma migrate dev
+npm run db:migrate:deploy  # prisma migrate deploy
+npm run db:generate        # prisma generate
+npm run db:studio          # prisma studio
 ```
 
 ## Workflow
