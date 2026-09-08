@@ -35,6 +35,10 @@ Unless `--quick`: spawn the `tech-debt-auditor` agent pointing at the new report
 - Verdict `PASS`: set the module status to `implemented` in `docs/00-overview.md` if the user asked for the status change, otherwise say the module is eligible.
 - Verdict `PASS WITH SHOULD-FIX` or `BLOCKED`: leave the status; list the blockers and should-fix items as the next tasks.
 
-## 6. Summary to the user
+## 6. Lessons
+
+When the verdict is `PASS`, or when a blocker was found, append to `docs/05-lessons.md`: one `L-<n>` entry per new root cause (source, what happened, rule, where it applies) and one row in the "Record of module cycles" table. Skip entries that repeat an existing rule; reference the existing id in the table instead.
+
+## 7. Summary to the user
 
 Verdict, gate results, counts of blockers / should-fix / nice-to-have, top three optimization opportunities, tech-debt summary line, path of the saved report. No more than 15 lines.

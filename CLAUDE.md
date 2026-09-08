@@ -31,7 +31,7 @@ stockdesk/
 
 React 19, Vite, TypeScript strict, TanStack Router, TanStack Query, Zustand, Tailwind CSS, shadcn/ui, i18next, TradingView Lightweight Charts, Express 5, Prisma, PostgreSQL 16, ws, zod, decimal.js, Vitest, Playwright. Hosting: Render free (API + web build, one origin) and Neon free (database).
 
-Details: `docs/01-architecture.md`. Conventions: `docs/02-conventions.md`. Deployment: `docs/04-deployment.md`.
+Details: `docs/01-architecture.md`. Conventions: `docs/02-conventions.md`. Deployment: `docs/04-deployment.md`. Lessons: `docs/05-lessons.md`.
 
 ## Commands
 
@@ -54,9 +54,10 @@ npm run db:studio          # prisma studio
 
 ## Workflow
 
-1. Read `docs/00-overview.md` for module status.
-2. Read the module spec in `docs/modules/`.
-3. Write the tests for the acceptance criteria first. Run them, confirm they fail.
-4. Implement until the tests pass. Refactor with the tests green.
-5. Run `/module-review <module>`. Fix blockers and should-fix items.
-6. Update module status in `docs/00-overview.md`.
+1. Read `docs/05-lessons.md` in full. Every rule there comes from a real failure in this repository; apply them to every agent prompt and every fix.
+2. Read `docs/00-overview.md` for module status.
+3. Read the module spec in `docs/modules/`. Pre-review it: list ambiguities, error codes without a status, environment variables missing from the spec, test-environment conflicts. Ask the user once, in a batch, and record the answers in the spec before coding.
+4. Write the tests for the acceptance criteria first. Run them, confirm they fail.
+5. Implement until the tests pass. Refactor with the tests green.
+6. Run `/module-review <module>`. Fix blockers and should-fix items; every fix prompt names the invariant that must keep holding.
+7. Update module status in `docs/00-overview.md` and append new lessons to `docs/05-lessons.md`.

@@ -1,0 +1,75 @@
+# Lessons Learned
+
+Read this file in full before starting any module, before writing an implementation prompt for an agent, and before every fix round. Every entry is a rule derived from a real failure in this repository. Add an entry at the end of each module review cycle; never delete one, mark it `superseded` if a later rule replaces it.
+
+Format: `L-<n>` id, source module and date, what happened, the rule, where it applies.
+
+## Process
+
+### L-1 Pre-review the spec before writing code
+
+- Source: auth, 2026-09-08. Five separate question rounds interrupted implementation because the spec left things open: `displayName` limits, password maximum, rate limiting versus integration tests, the HTTP status of `VALIDATION_ERROR`, `WEB_DIST_DIR`, the `NOT_FOUND` code.
+- Rule: before the first implementation agent starts, run one pass over the module spec that lists every ambiguity, every error code without a status, every environment variable missing from the spec's `.env.example` block, and every test-environment conflict (rate limits, timers, external calls). Ask the user once, in a batch, and record the answers in the spec before coding.
+- Applies to: every module, the coordinating session.
+
+### L-2 Name the invariant in every fix prompt
+
+- Source: auth, 2026-09-08. A fix round said "logout deletes the presented token row". The agent implemented it literally and deleted rotated rows too, which erased the tombstones reuse detection depends on. A new blocker came out of a fix.
+- Rule: when a fix touches authentication, authorization, money, or any state machine, the prompt states the invariant that must keep holding (for example "revoked refresh-token rows must survive until `expiresAt` so a replayed old cookie still triggers `REFRESH_REUSED`") and requires a test that asserts the invariant, not only the reported symptom.
+- Applies to: every fix prompt, every agent doing the fix.
+
+### L-3 Reviewer suggestions are options, not instructions
+
+- Source: auth, 2026-09-08. The reviewer offered "delete the row on logout" as one fix. It was correct for live rows and wrong for revoked rows. Passing it on verbatim cost one review round.
+- Rule: check every suggested fix against the module's invariants and the spec before handing it to an agent; rewrite it with the precise predicate.
+- Applies to: the coordinating session.
+
+### L-4 Do not end the turn while an agent runs tests on the shared test database
+
+- Source: auth, 2026-09-08. The `Stop` hook ran `vitest` in `apps/api` while a subagent ran the same suite on `stockdesk_test`. Result: `TRUNCATE` deadlock and `409 EMAIL_TAKEN` from identical fixture emails, reported as failures that were not real.
+- Rule: fixtures must be unique per test (random suffix, never a fixed email). While a subagent owns a test run, keep the turn open or accept that hook output is noise; a failure counts only when it reproduces in a solo run.
+- Applies to: the coordinating session, `apps/api/test/helpers.ts` fixtures.
+
+### L-5 Tests first, with first-failure evidence, stays mandatory
+
+- Source: auth, 2026-09-08. Every agent report quoted the first failing assertion before implementing. Each blocker fix was proven by a test that failed first (`expected [200, 200] to deeply equal [200, 401]`, `expected 429 not to be 429`). No regression slipped through where this was followed.
+- Rule: every agent prompt requires the first failing line in the report. A fix without a failing test first is sent back.
+- Applies to: every agent prompt.
+
+## Design
+
+### L-6 Every database state transition is a conditional write with a concurrent test
+
+- Source: auth, 2026-09-08. Refresh rotation read a row with `findUnique` and revoked it with `update({ where: { id } })`. Two concurrent refreshes with the same cookie both succeeded, so one stolen token produced two live sessions and reuse detection never fired.
+- Rule: a state transition is written as a conditional update (`updateMany({ where: { id, <expected state> } })`, `count === 0` means someone else won) or under a row lock, and the test fires the operation twice with `Promise.all` and asserts exactly one winner. This applies to token rotation, cash movements, order fills, transfers, and anything else with a "current state" column.
+- Applies to: `apps/api/src/modules/**/repository.ts`, integration tests.
+
+### L-7 Think through the production topology for every request-level feature
+
+- Source: auth, 2026-09-08. Rate limiting keyed on `req.ip` without `trust proxy`. Behind Render's proxy every client shares one IP, so the limit was global, not per client.
+- Rule: for anything that reads the client address, the scheme, or the host (rate limits, cookie `secure`, redirects, CORS), state how it behaves behind one proxy hop and test it with `X-Forwarded-For`. Use a fixed hop count, never `trust proxy: true`.
+- Applies to: `apps/api/src/app.ts`, middleware.
+
+### L-8 Every emitted error code is typed and documented when introduced
+
+- Source: auth, 2026-09-08. A `NOT_FOUND` handler was added with a string literal; it was in neither the spec nor the shared union, and only a test would have caught drift.
+- Rule: error codes live in a shared `as const` array and union (`AUTH_ERROR_CODES`, `API_ERROR_CODES`, combined `ErrorCode`); `AppError` and the error envelope are typed with the union; the module spec lists the code with its HTTP status in the same change that introduces it.
+- Applies to: `packages/shared`, `apps/api/src/lib/errors.ts`, module specs.
+
+### L-9 Rows that serve as evidence are never deleted by user-facing actions
+
+- Source: auth, 2026-09-08. Rotated refresh tokens are tombstones for reuse detection. A logout implementation deleted them, so an attacker could hide reuse by calling the unauthenticated logout endpoint with the stolen value.
+- Rule: identify rows that exist as evidence (revoked tokens, ledger entries, audit rows) and make every delete path carry a predicate that excludes them. Pruning happens by TTL in a job, not by a user action.
+- Applies to: repositories, jobs, ledger and token tables.
+
+### L-10 Lint rules are verified by a deliberate violation
+
+- Source: auth, 2026-09-08. The scaffold agent probed every convention rule with a violation and confirmed it fired. Two gaps were still found later by review (decimal rule did not cover `apps/web/src/lib`, test override disabled more than intended) because the probes did not cover every path.
+- Rule: when adding or changing an ESLint rule, probe one file per glob it should cover and one it should not, and record the probe result in the report.
+- Applies to: `eslint.config.js` changes.
+
+## Record of module cycles
+
+| Module | Date | Review rounds | Blockers found | Root causes |
+|--------|------|---------------|----------------|-------------|
+| auth | 2026-09-08 | 4 (BLOCKED, PASS WITH SHOULD-FIX, BLOCKED, PASS) | 3 | L-6, L-7, L-2 with L-9 |
