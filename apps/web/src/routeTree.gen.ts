@@ -16,6 +16,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedDepositRouteImport } from './routes/_authenticated/deposit'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedSymbolsSymbolRouteImport } from './routes/_authenticated/symbols/$symbol'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
@@ -51,6 +52,12 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedSymbolsSymbolRoute =
+  AuthenticatedSymbolsSymbolRouteImport.update({
+    id: '/symbols/$symbol',
+    path: '/symbols/$symbol',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/deposit': typeof AuthenticatedDepositRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/symbols/$symbol': typeof AuthenticatedSymbolsSymbolRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -67,6 +75,7 @@ export interface FileRoutesByTo {
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/': typeof AuthenticatedIndexRoute
+  '/symbols/$symbol': typeof AuthenticatedSymbolsSymbolRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,13 +86,27 @@ export interface FileRoutesById {
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/symbols/$symbol': typeof AuthenticatedSymbolsSymbolRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/login' | '/register' | '/deposit' | '/reports' | '/settings'
+    | '/'
+    | '/login'
+    | '/register'
+    | '/deposit'
+    | '/reports'
+    | '/settings'
+    | '/symbols/$symbol'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/register' | '/deposit' | '/reports' | '/settings' | '/'
+  to:
+    | '/login'
+    | '/register'
+    | '/deposit'
+    | '/reports'
+    | '/settings'
+    | '/'
+    | '/symbols/$symbol'
   id:
     | '__root__'
     | '/_authenticated'
@@ -93,6 +116,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reports'
     | '/_authenticated/settings'
     | '/_authenticated/'
+    | '/_authenticated/symbols/$symbol'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -152,6 +176,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/symbols/$symbol': {
+      id: '/_authenticated/symbols/$symbol'
+      path: '/symbols/$symbol'
+      fullPath: '/symbols/$symbol'
+      preLoaderRoute: typeof AuthenticatedSymbolsSymbolRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -160,6 +191,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedSymbolsSymbolRoute: typeof AuthenticatedSymbolsSymbolRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -167,6 +199,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedSymbolsSymbolRoute: AuthenticatedSymbolsSymbolRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

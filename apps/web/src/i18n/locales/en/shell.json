@@ -13,7 +13,16 @@
   "profile.settings": "Settings",
   "profile.signOut": "Sign out",
   "search.placeholder": "Search a symbol",
-  "search.disabledTooltip": "Symbol search arrives with the market data module.",
+  "search.listLabel": "Symbol search results",
+  "search.noResults": "No symbol matches this search.",
+  "search.recent": "Recent symbols",
+  "status.label": "Market status",
+  "status.open": "Open",
+  "status.closed": "Closed",
+  "status.pre": "Pre-market",
+  "status.after": "After hours",
+  "status.opensAt": "Opens {{time}}",
+  "status.closesAt": "Closes {{time}}",
   "sidebar.openMenu": "Open the navigation",
   "sidebar.closeMenu": "Close the navigation"
 }

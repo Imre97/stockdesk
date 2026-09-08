@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { DepositForm } from "../../features/funding/components/DepositForm";
 import { TransactionsList } from "../../features/funding/components/TransactionsList";
 import { useSelectedFundingAccountId, useTransactionRows } from "../../features/funding/hooks";
+import { ensureNamespaces } from "../../i18n";
 
 function DepositPage() {
   const { t } = useTranslation("funding");
@@ -24,4 +25,7 @@ function DepositPage() {
   );
 }
 
-export const Route = createFileRoute("/_authenticated/deposit")({ component: DepositPage });
+export const Route = createFileRoute("/_authenticated/deposit")({
+  loader: () => ensureNamespaces("funding"),
+  component: DepositPage,
+});

@@ -17,7 +17,9 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { getErrorCode } from "../../lib/http";
+import { userScopedKey } from "../../lib/query-keys";
 import { useAccountsStore } from "../accounts/store";
+import { useCurrentUserId } from "../auth/hooks";
 import { useSettingsLocale } from "../settings/hooks";
 import * as api from "./api";
 import { parseAmountInput, toTransactionViewModel, type TransactionViewModel } from "./mappers";
@@ -33,8 +35,8 @@ export interface DepositVariables {
   note?: string | undefined;
 }
 
-export function transactionsQueryKey(accountId: string | null): readonly unknown[] {
-  return ["transactions", accountId];
+export function transactionsQueryKey(userId: string | null, accountId: string | null): readonly unknown[] {
+  return userScopedKey(userId, "transactions", accountId);
 }
 
 /**
@@ -53,8 +55,10 @@ export function useSelectedFundingAccountId(): string | null {
 }
 
 export function useTransactions(accountId: string | null): UseQueryResult<TransactionsPage> {
+  const userId = useCurrentUserId();
+
   return useQuery({
-    queryKey: transactionsQueryKey(accountId),
+    queryKey: transactionsQueryKey(userId, accountId),
     queryFn: () => api.listTransactions(accountId ?? ""),
     enabled: accountId !== null,
   });
@@ -72,6 +76,7 @@ export function useTransactionRows(accountId: string | null): TransactionViewMod
 }
 
 export function useDeposit(): UseMutationResult<DepositResponse, Error, DepositVariables> {
+  const userId = useCurrentUserId();
   const queryClient = useQueryClient();
   const upsertAccount = useAccountsStore((state) => state.upsertAccount);
   const { t } = useTranslation("funding");
@@ -80,7 +85,7 @@ export function useDeposit(): UseMutationResult<DepositResponse, Error, DepositV
     mutationFn: ({ accountId, amount, note }) => api.deposit(accountId, { amount, note }),
     onSuccess: (response, variables) => {
       upsertAccount(response.account);
-      queryClient.setQueryData<TransactionsPage>(transactionsQueryKey(variables.accountId), (previous) => ({
+      queryClient.setQueryData<TransactionsPage>(transactionsQueryKey(userId, variables.accountId), (previous) => ({
         transactions: [response.transaction, ...(previous?.transactions ?? [])],
         nextCursor: previous?.nextCursor ?? null,
       }));

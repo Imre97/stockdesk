@@ -2,9 +2,10 @@ import { MenuIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import { MarketStatusBadge } from "../../market/components/MarketStatusBadge";
 import { useShellStore } from "../store";
 import { ProfileMenu } from "./ProfileMenu";
-import { TickerSearchInput } from "./TickerSearchInput";
+import { TickerSearch } from "./TickerSearch";
 
 export function Header() {
   const { t } = useTranslation("shell");
@@ -23,8 +24,9 @@ export function Header() {
       </Button>
       <span className="text-base font-semibold whitespace-nowrap">{t("brand")}</span>
       <div className="flex flex-1 justify-center">
-        <TickerSearchInput />
+        <TickerSearch />
       </div>
+      <MarketStatusBadge />
       <ProfileMenu />
     </header>
   );

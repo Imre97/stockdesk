@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { AuthLayout } from "../components/AuthLayout";
 import { LoginForm } from "../features/auth/components/LoginForm";
+import { ensureNamespaces } from "../i18n";
 
 function LoginPage() {
   const { t } = useTranslation();
@@ -14,4 +15,7 @@ function LoginPage() {
   );
 }
 
-export const Route = createFileRoute("/login")({ component: LoginPage });
+export const Route = createFileRoute("/login")({
+  loader: () => ensureNamespaces("auth"),
+  component: LoginPage,
+});

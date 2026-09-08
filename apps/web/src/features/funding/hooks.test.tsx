@@ -13,6 +13,7 @@ vi.mock("sonner", () => ({ toast }));
 
 import { i18n } from "../../i18n";
 import { useAccountsStore } from "../accounts/store";
+import { useAuthStore } from "../auth/store";
 import { useSettingsStore } from "../settings/store";
 import {
   transactionsQueryKey,
@@ -68,6 +69,13 @@ const SAVINGS_DEPOSIT = depositResponseSchema.parse({
 
 const SUBMIT_EVENT = { preventDefault: () => undefined } as unknown as FormEvent<HTMLFormElement>;
 
+const USER = {
+  id: "user-1",
+  email: "trader@example.com",
+  displayName: "Ada Trader",
+  createdAt: "2026-09-08T10:00:00.000Z",
+};
+
 let queryClient: QueryClient;
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -91,6 +99,7 @@ beforeEach(() => {
   queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  useAuthStore.setState({ user: USER, accessToken: "token-1", status: "authenticated" });
   useSettingsStore.setState({ language: "en", theme: "system", defaultAccountId: null, status: "idle" });
   useAccountsStore.setState({ accounts: [], activeAccountId: null, status: "idle" });
   useAccountsStore.getState().setAccounts([MAIN, SAVINGS]);
@@ -105,7 +114,7 @@ beforeEach(() => {
 
 describe("useDeposit", () => {
   it("upserts the returned account and prepends the transaction to the cached page", async () => {
-    queryClient.setQueryData(transactionsQueryKey("acc-2"), {
+    queryClient.setQueryData(transactionsQueryKey(USER.id, "acc-2"), {
       transactions: SAVINGS_LEDGER,
       nextCursor: null,
     });
@@ -124,7 +133,7 @@ describe("useDeposit", () => {
       expect(account?.equity.equals(new Decimal("5250.50"))).toBe(true);
     });
 
-    const page = queryClient.getQueryData(transactionsQueryKey("acc-2")) as { transactions: { id: string }[] };
+    const page = queryClient.getQueryData(transactionsQueryKey(USER.id, "acc-2")) as { transactions: { id: string }[] };
 
     expect(page.transactions.map((entry) => entry.id)).toEqual(["tx-new", "tx-savings"]);
     expect(toast.success).toHaveBeenCalled();
@@ -160,7 +169,7 @@ describe("the deposit page ledger", () => {
       expect(result.current.rows.map((row) => row.id)).toEqual(["tx-new", "tx-savings"]);
     });
 
-    const mainPage = queryClient.getQueryData(transactionsQueryKey("acc-1")) as
+    const mainPage = queryClient.getQueryData(transactionsQueryKey(USER.id, "acc-1")) as
       | { transactions: { id: string }[] }
       | undefined;
 

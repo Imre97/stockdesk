@@ -28,11 +28,19 @@ export interface WsSession {
   disconnect: () => void;
   addMessageListener: (listener: WsMessageListener) => () => void;
   send: (message: ClientMessage) => void;
+  subscribe: (key: string, subscribeMessage: ClientMessage, unsubscribeMessage: ClientMessage) => () => void;
+}
+
+interface Subscription {
+  count: number;
+  subscribeMessage: ClientMessage;
+  unsubscribeMessage: ClientMessage;
 }
 
 export function createWsSession(options: WsSessionOptions): WsSession {
   const listeners = new Set<WsMessageListener>();
   const pending: ClientMessage[] = [];
+  const subscriptions = new Map<string, Subscription>();
 
   function flush(): void {
     while (pending.length > 0) {
@@ -44,10 +52,30 @@ export function createWsSession(options: WsSessionOptions): WsSession {
     }
   }
 
+  function resendSubscriptions(): void {
+    for (const subscription of subscriptions.values()) client.send(subscription.subscribeMessage);
+  }
+
   function handleMessage(message: ServerMessage): void {
-    if (message.type === "auth_ok") flush();
+    if (message.type === "auth_ok") {
+      flush();
+      resendSubscriptions();
+    }
 
     for (const listener of [...listeners]) listener(message);
+  }
+
+  function release(key: string): void {
+    const subscription = subscriptions.get(key);
+
+    if (subscription === undefined) return;
+
+    subscription.count -= 1;
+
+    if (subscription.count > 0) return;
+
+    subscriptions.delete(key);
+    client.send(subscription.unsubscribeMessage);
   }
 
   const client = createWsClient({ ...options, onMessage: handleMessage });
@@ -58,6 +86,7 @@ export function createWsSession(options: WsSessionOptions): WsSession {
     disconnect: () => {
       pending.length = 0;
       listeners.clear();
+      subscriptions.clear();
       client.disconnect();
     },
 
@@ -73,6 +102,26 @@ export function createWsSession(options: WsSessionOptions): WsSession {
       if (client.send(message)) return;
 
       pending.push(message);
+    },
+
+    subscribe: (key, subscribeMessage, unsubscribeMessage) => {
+      const existing = subscriptions.get(key);
+
+      if (existing === undefined) {
+        subscriptions.set(key, { count: 1, subscribeMessage, unsubscribeMessage });
+        client.send(subscribeMessage);
+      } else {
+        existing.count += 1;
+      }
+
+      let released = false;
+
+      return () => {
+        if (released) return;
+
+        released = true;
+        release(key);
+      };
     },
   };
 }

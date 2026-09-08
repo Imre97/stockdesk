@@ -10,6 +10,8 @@ import type {
 } from "@stockdesk/shared";
 import { useMutation, useQuery, type UseMutationResult, type UseQueryResult } from "@tanstack/react-query";
 
+import { userScopedKey } from "../../lib/query-keys";
+import { useCurrentUserId } from "../auth/hooks";
 import { useSettingsLocale } from "../settings/hooks";
 import * as api from "./api";
 import { toAccountViewModel, type AccountViewModel } from "./mappers";
@@ -17,12 +19,16 @@ import { useAccountsStore } from "./store";
 
 export const MARKET_DATA_STALE_TIME_MS = 60_000;
 
-export function equityQueryKey(accountId: string | null, range: EquityRange): readonly unknown[] {
-  return ["equity", accountId, range];
+export function equityQueryKey(
+  userId: string | null,
+  accountId: string | null,
+  range: EquityRange,
+): readonly unknown[] {
+  return userScopedKey(userId, "equity", accountId, range);
 }
 
-export function positionsQueryKey(accountId: string | null): readonly unknown[] {
-  return ["positions", accountId];
+export function positionsQueryKey(userId: string | null, accountId: string | null): readonly unknown[] {
+  return userScopedKey(userId, "positions", accountId);
 }
 
 export interface AccountsView {
@@ -67,8 +73,10 @@ export function useActiveAccountView(): AccountViewModel | null {
 }
 
 export function useEquity(accountId: string | null, range: EquityRange): UseQueryResult<EquityResponse> {
+  const userId = useCurrentUserId();
+
   return useQuery({
-    queryKey: equityQueryKey(accountId, range),
+    queryKey: equityQueryKey(userId, accountId, range),
     queryFn: () => api.getEquity(accountId ?? "", range),
     enabled: accountId !== null,
     staleTime: MARKET_DATA_STALE_TIME_MS,
@@ -76,8 +84,10 @@ export function useEquity(accountId: string | null, range: EquityRange): UseQuer
 }
 
 export function usePositions(accountId: string | null): UseQueryResult<PositionsResponse> {
+  const userId = useCurrentUserId();
+
   return useQuery({
-    queryKey: positionsQueryKey(accountId),
+    queryKey: positionsQueryKey(userId, accountId),
     queryFn: () => api.getPositions(accountId ?? ""),
     enabled: accountId !== null,
     staleTime: MARKET_DATA_STALE_TIME_MS,

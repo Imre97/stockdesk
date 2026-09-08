@@ -20,6 +20,10 @@ export function useCurrentUser(): UserViewModel | null {
   return useMemo(() => (user === null ? null : toUserViewModel(user)), [user]);
 }
 
+export function useCurrentUserId(): string | null {
+  return useAuthStore((state) => state.user?.id ?? null);
+}
+
 export function useLogout(): () => Promise<void> {
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { AuthLayout } from "../components/AuthLayout";
 import { RegisterForm } from "../features/auth/components/RegisterForm";
+import { ensureNamespaces } from "../i18n";
 
 function RegisterPage() {
   const { t } = useTranslation();
@@ -14,4 +15,7 @@ function RegisterPage() {
   );
 }
 
-export const Route = createFileRoute("/register")({ component: RegisterPage });
+export const Route = createFileRoute("/register")({
+  loader: () => ensureNamespaces("auth"),
+  component: RegisterPage,
+});

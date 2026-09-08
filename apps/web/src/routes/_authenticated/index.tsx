@@ -7,6 +7,7 @@ import { EquityChart } from "../../features/dashboard/components/EquityChart";
 import { PositionsTable } from "../../features/dashboard/components/PositionsTable";
 import { RangeSelector } from "../../features/dashboard/components/RangeSelector";
 import { useEquityRange, usePositionRows } from "../../features/dashboard/hooks";
+import { ensureNamespaces } from "../../i18n";
 
 function PortfolioPage() {
   const { t } = useTranslation("dashboard");
@@ -29,4 +30,7 @@ function PortfolioPage() {
   );
 }
 
-export const Route = createFileRoute("/_authenticated/")({ component: PortfolioPage });
+export const Route = createFileRoute("/_authenticated/")({
+  loader: () => ensureNamespaces("dashboard"),
+  component: PortfolioPage,
+});

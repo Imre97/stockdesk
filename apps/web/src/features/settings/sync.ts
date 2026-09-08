@@ -4,16 +4,22 @@ import { useMutation, useQuery, useQueryClient, type UseMutationResult } from "@
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
+import { userScopedKey } from "../../lib/query-keys";
+import { useCurrentUserId } from "../auth/hooks";
 import * as api from "./api";
 import { useSettingsStore } from "./store";
 
-export const SETTINGS_QUERY_KEY = ["settings"] as const;
 export const SETTINGS_SAVE_ERROR_KEY = "errors.saveFailed";
 
+export function settingsQueryKey(userId: string | null): readonly unknown[] {
+  return userScopedKey(userId, "settings");
+}
+
 export function useSettingsSync(): void {
+  const userId = useCurrentUserId();
   const applyServerSettings = useSettingsStore((state) => state.applyServerSettings);
   const query = useQuery({
-    queryKey: SETTINGS_QUERY_KEY,
+    queryKey: settingsQueryKey(userId),
     queryFn: api.fetchSettings,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
@@ -29,6 +35,7 @@ export function useSettingsSync(): void {
 }
 
 export function useUpdateSettings(): UseMutationResult<SettingsResponse, Error, UpdateSettingsInput> {
+  const userId = useCurrentUserId();
   const applyServerSettings = useSettingsStore((state) => state.applyServerSettings);
   const queryClient = useQueryClient();
   const { t } = useTranslation("settings");
@@ -37,7 +44,7 @@ export function useUpdateSettings(): UseMutationResult<SettingsResponse, Error, 
     mutationFn: (input) => api.updateSettings(input),
     onSuccess: (response) => {
       applyServerSettings(response.settings);
-      void queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: settingsQueryKey(userId) });
       toast.success(t("saved"));
     },
     onError: () => toast.error(t(SETTINGS_SAVE_ERROR_KEY)),

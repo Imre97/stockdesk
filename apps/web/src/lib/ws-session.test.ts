@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { ClientMessage } from "@stockdesk/shared";
+
 import { createWsSession } from "./ws-session";
 
 class FakeSocket {
@@ -55,6 +57,9 @@ const ACCOUNT_DTO = {
 const AUTH_OK = { type: "auth_ok", userId: "user-1" } as const;
 const ACCOUNT_SUMMARY = { type: "account_summary", accounts: [ACCOUNT_DTO] } as const;
 const QUEUED_MESSAGE = { type: "auth", token: "queued-token" } as const;
+const SUBSCRIBE_QUOTES: ClientMessage = { type: "subscribe", channel: "quotes", symbols: ["TSLA"] };
+const UNSUBSCRIBE_QUOTES: ClientMessage = { type: "unsubscribe", channel: "quotes", symbols: ["TSLA"] };
+const QUOTES_KEY = "quotes:TSLA";
 
 function session() {
   return createWsSession({
@@ -63,6 +68,10 @@ function session() {
     WebSocketImpl: FakeSocket,
     timers: { setTimeout: () => 1, clearTimeout: () => undefined },
   });
+}
+
+function framesOf(socket: FakeSocket, message: unknown): string[] {
+  return socket.sent.filter((frame) => frame === JSON.stringify(message));
 }
 
 function last(): FakeSocket {
@@ -166,6 +175,99 @@ describe("createWsSession", () => {
     ws.connect();
 
     expect(FakeSocket.instances).toHaveLength(2);
+    ws.disconnect();
+  });
+});
+
+describe("createWsSession subscriptions", () => {
+  it("sends one subscribe frame when two callers subscribe to the same key", () => {
+    const ws = session();
+
+    ws.connect();
+    last().open();
+    last().emit(AUTH_OK);
+
+    ws.subscribe(QUOTES_KEY, SUBSCRIBE_QUOTES, UNSUBSCRIBE_QUOTES);
+    ws.subscribe(QUOTES_KEY, SUBSCRIBE_QUOTES, UNSUBSCRIBE_QUOTES);
+
+    expect(framesOf(last(), SUBSCRIBE_QUOTES)).toHaveLength(1);
+
+    ws.disconnect();
+  });
+
+  it("unsubscribes only after the last holder released the key", () => {
+    const ws = session();
+
+    ws.connect();
+    last().open();
+    last().emit(AUTH_OK);
+
+    const releaseFirst = ws.subscribe(QUOTES_KEY, SUBSCRIBE_QUOTES, UNSUBSCRIBE_QUOTES);
+    const releaseSecond = ws.subscribe(QUOTES_KEY, SUBSCRIBE_QUOTES, UNSUBSCRIBE_QUOTES);
+
+    releaseFirst();
+
+    expect(framesOf(last(), UNSUBSCRIBE_QUOTES)).toHaveLength(0);
+
+    releaseSecond();
+
+    expect(framesOf(last(), UNSUBSCRIBE_QUOTES)).toHaveLength(1);
+
+    releaseSecond();
+
+    expect(framesOf(last(), UNSUBSCRIBE_QUOTES)).toHaveLength(1);
+
+    ws.disconnect();
+  });
+
+  it("sends every active subscription again after a later auth_ok", () => {
+    const ws = session();
+
+    ws.connect();
+    last().open();
+    last().emit(AUTH_OK);
+    ws.subscribe(QUOTES_KEY, SUBSCRIBE_QUOTES, UNSUBSCRIBE_QUOTES);
+
+    expect(framesOf(last(), SUBSCRIBE_QUOTES)).toHaveLength(1);
+
+    last().emit(AUTH_OK);
+
+    expect(framesOf(last(), SUBSCRIBE_QUOTES)).toHaveLength(2);
+
+    ws.disconnect();
+  });
+
+  it("delivers a subscription taken before the handshake once the handshake succeeds", () => {
+    const ws = session();
+
+    ws.connect();
+    last().open();
+    ws.subscribe(QUOTES_KEY, SUBSCRIBE_QUOTES, UNSUBSCRIBE_QUOTES);
+
+    expect(framesOf(last(), SUBSCRIBE_QUOTES)).toHaveLength(0);
+
+    last().emit(AUTH_OK);
+
+    expect(framesOf(last(), SUBSCRIBE_QUOTES)).toHaveLength(1);
+
+    ws.disconnect();
+  });
+
+  it("clears the subscription table on disconnect", () => {
+    const ws = session();
+
+    ws.connect();
+    last().open();
+    last().emit(AUTH_OK);
+    ws.subscribe(QUOTES_KEY, SUBSCRIBE_QUOTES, UNSUBSCRIBE_QUOTES);
+    ws.disconnect();
+
+    ws.connect();
+    last().open();
+    last().emit(AUTH_OK);
+
+    expect(framesOf(last(), SUBSCRIBE_QUOTES)).toHaveLength(0);
+
     ws.disconnect();
   });
 });

@@ -2,6 +2,26 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 
+import { i18n } from "./src/i18n";
+
+type Catalog = Record<string, string>;
+
+const LOCALE_FILE_PATTERN = /^\.\/src\/i18n\/locales\/([^/]+)\/([^/]+)\.json$/;
+const allCatalogs = import.meta.glob<Catalog>("./src/i18n/locales/*/*.json", {
+  eager: true,
+  import: "default",
+});
+
+for (const [file, catalog] of Object.entries(allCatalogs)) {
+  const match = LOCALE_FILE_PATTERN.exec(file);
+  const locale = match?.[1];
+  const namespace = match?.[2];
+
+  if (locale === undefined || namespace === undefined) continue;
+
+  i18n.addResourceBundle(locale, namespace, catalog, true, true);
+}
+
 class ResizeObserverStub {
   observe(): void {
     return undefined;

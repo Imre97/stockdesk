@@ -13,7 +13,16 @@
   "profile.settings": "Beállítások",
   "profile.signOut": "Kijelentkezés",
   "search.placeholder": "Keressen egy szimbólumot",
-  "search.disabledTooltip": "A szimbólumkeresés a piaci adatok modullal érkezik.",
+  "search.listLabel": "Szimbólumkeresés találatai",
+  "search.noResults": "Egyetlen szimbólum sem felel meg a keresésnek.",
+  "search.recent": "Legutóbbi szimbólumok",
+  "status.label": "Piac állapota",
+  "status.open": "Nyitva",
+  "status.closed": "Zárva",
+  "status.pre": "Nyitás előtt",
+  "status.after": "Zárás után",
+  "status.opensAt": "Nyitás: {{time}}",
+  "status.closesAt": "Zárás: {{time}}",
   "sidebar.openMenu": "Navigáció megnyitása",
   "sidebar.closeMenu": "Navigáció bezárása"
 }
