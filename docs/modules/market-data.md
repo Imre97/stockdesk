@@ -259,7 +259,7 @@ Base path `/api/v1`, all endpoints protected.
 | Code | HTTP | WebSocket | Meaning |
 |------|------|-----------|---------|
 | `SYMBOL_NOT_FOUND` | 404 | `{ "type": "error", "code": "SYMBOL_NOT_FOUND", "symbol" }` | Unknown or inactive symbol. |
-| `INVALID_TIMEFRAME` | 422 | same code on a `bars` subscribe | `timeframe` not in the list. |
+| `INVALID_TIMEFRAME` | 422 | none: a `bars` subscribe with an unknown timeframe fails schema validation and is ignored like every malformed post-auth message (Module 2 rule) | `timeframe` not in the list. |
 | `PROVIDER_UNAVAILABLE` | 503 | none | Every capable provider failed (after one retry each) for a request that needs fresh data. |
 | `SUBSCRIPTION_LIMIT` | none | `{ "type": "error", "code": "SUBSCRIPTION_LIMIT" }` | More than 50 quote or 5 bar subscriptions on one socket. |
 | `VALIDATION_ERROR` | 422 | none | Invalid query: `q` empty or over 20 characters, `limit` over the maximum (no clamping), malformed `end`, symbol with characters outside `[A-Z0-9.-]` after upper-casing. |
@@ -386,6 +386,9 @@ Runtime: Node 22 (`engines`, `render.yaml` `NODE_VERSION`, CI `node-version`, `d
 15. Cache-hit rule (implementation detail of the policy above): a request is served from the cache when the coverage contains `[end - duration(timeframe) * limit, end)`, or when `limit` bars are held and the coverage contains `[oldestReturned.time, end)`. The first clause keeps series with real gaps (weekends on `1D`) from re-asking the provider for a window it has already answered.
 16. Early-close days: regular session 09:30 to 13:00 New York, `after` 13:00 to 17:00.
 17. `Symbol.source` is the name of the first search-capable provider in the configured chain. `upsertSymbols` stamps `updatedAt` on unchanged rows too, so the `SYMBOL_REFRESH_HOURS` staleness check is honest across boots.
+18. Bucket alignment (one definition in `apps/api/src/modules/market/timeframes.ts`, used by the simulated provider, the candle cache and the live aggregator): `1m`, `5m`, `15m`, `1h` align to UTC; `1D` starts at America/New_York midnight, `1W` at the Monday New York midnight, `1M` at the first of the month New York midnight, for every provider. This matches Alpaca's daily bar timestamps, so a provider daily bar and the live forming daily bar share one row, and the price service reads today's forming bar and the previous close from the same New York day boundary.
+19. Playwright harness: the API `webServer` command prepares the `stockdesk_e2e` database (`prisma migrate deploy` and truncate) before it starts the server, so the boot-time symbol seed survives; `GET /api/v1/health` carries `ready: boolean` (true once the boot tasks including the symbol refresh finished) and the e2e global setup polls it before the first test (closes TD-22).
+20. WebSocket subscribe messages that refuse some symbols add the ones that fit and send `SUBSCRIPTION_LIMIT` once; unknown symbols get one `SYMBOL_NOT_FOUND` each. Message handling is serialized per socket.
 12. Route param `/symbols/:symbol` is upper-cased on both sides before lookup.
 
 ## Acceptance criteria
