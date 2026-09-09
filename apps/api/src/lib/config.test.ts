@@ -265,6 +265,56 @@ describe("loadConfig", () => {
     );
   });
 
+  it("defaults the order engine settings", () => {
+    const config = loadConfig(baseEnv);
+
+    expect(config.commissionPerOrder.toString()).toBe("0");
+    expect(config.marketOrderBuffer.toString()).toBe("0.02");
+    expect(config.shortMarginRate.toString()).toBe("0.5");
+    expect(config.maintenanceMarginRate.toString()).toBe("0.3");
+    expect(config.orderExpiryCheckSeconds).toBe(60);
+  });
+
+  it("parses provided order engine settings", () => {
+    const config = loadConfig({
+      ...baseEnv,
+      COMMISSION_PER_ORDER: "1.25",
+      MARKET_ORDER_BUFFER: "0.05",
+      SHORT_MARGIN_RATE: "0.75",
+      MAINTENANCE_MARGIN_RATE: "0.25",
+      ORDER_EXPIRY_CHECK_SECONDS: "15",
+    });
+
+    expect(config.commissionPerOrder.toString()).toBe("1.25");
+    expect(config.marketOrderBuffer.toString()).toBe("0.05");
+    expect(config.shortMarginRate.toString()).toBe("0.75");
+    expect(config.maintenanceMarginRate.toString()).toBe("0.25");
+    expect(config.orderExpiryCheckSeconds).toBe(15);
+  });
+
+  it("rejects a negative order engine rate", () => {
+    expect(() => loadConfig({ ...baseEnv, COMMISSION_PER_ORDER: "-0.01" })).toThrowError(
+      /COMMISSION_PER_ORDER/,
+    );
+    expect(() => loadConfig({ ...baseEnv, MARKET_ORDER_BUFFER: "-0.02" })).toThrowError(
+      /MARKET_ORDER_BUFFER/,
+    );
+    expect(() => loadConfig({ ...baseEnv, SHORT_MARGIN_RATE: "-0.5" })).toThrowError(/SHORT_MARGIN_RATE/);
+    expect(() => loadConfig({ ...baseEnv, MAINTENANCE_MARGIN_RATE: "-0.3" })).toThrowError(
+      /MAINTENANCE_MARGIN_RATE/,
+    );
+  });
+
+  it("rejects a non-decimal order engine rate", () => {
+    expect(() => loadConfig({ ...baseEnv, SHORT_MARGIN_RATE: "half" })).toThrowError(/SHORT_MARGIN_RATE/);
+    expect(() => loadConfig({ ...baseEnv, ORDER_EXPIRY_CHECK_SECONDS: "0" })).toThrowError(
+      /ORDER_EXPIRY_CHECK_SECONDS/,
+    );
+    expect(() => loadConfig({ ...baseEnv, ORDER_EXPIRY_CHECK_SECONDS: "1.5" })).toThrowError(
+      /ORDER_EXPIRY_CHECK_SECONDS/,
+    );
+  });
+
   it("rejects a non-integer auth rate limit", () => {
     expect(() => loadConfig({ ...baseEnv, AUTH_RATE_LIMIT_MAX: "1.5" })).toThrowError(/AUTH_RATE_LIMIT_MAX/);
     expect(() => loadConfig({ ...baseEnv, AUTH_RATE_LIMIT_MAX: "ten" })).toThrowError(/AUTH_RATE_LIMIT_MAX/);

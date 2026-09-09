@@ -9,7 +9,9 @@ import type {
   TransactionsQuery,
 } from "@stockdesk/shared";
 import { AppError } from "../../lib/errors.js";
+import { listOpenPositions } from "../orders/positions-repository.js";
 import { loadEquityPoints } from "./equity.js";
+import { toPositionViews } from "./positions-view.js";
 import { decodeCursor, encodeCursor, toCashTransactionDto } from "./ledger.js";
 import * as repository from "./repository.js";
 import {
@@ -101,7 +103,11 @@ export function createAccountsService(dependencies: AccountsDependencies = {}): 
     async positions(userId: string, accountId: string): Promise<PositionDto[]> {
       await requireOwnedAccount(userId, accountId);
 
-      return [];
+      return await toPositionViews(
+        await listOpenPositions(accountId),
+        dependencies.prices,
+        currentTime(dependencies),
+      );
     },
 
     async equity(userId: string, accountId: string, range: EquityRange): Promise<EquityPointDto[]> {

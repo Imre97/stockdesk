@@ -42,6 +42,9 @@ model Account {
   updatedAt    DateTime                @updatedAt
   snapshots    AccountEquitySnapshot[]
   transactions CashTransaction[]
+  orders       Order[]
+  trades       Trade[]
+  positions    Position[]
 
   @@unique([userId, name])
   @@index([userId])
@@ -152,4 +155,118 @@ model AccountEquitySnapshot {
   equity         Decimal  @db.Decimal(20, 2)
 
   @@unique([accountId, at])
+}
+
+enum OrderSide {
+  BUY
+  SELL
+}
+
+enum OrderType {
+  MARKET
+  LIMIT
+  STOP
+  STOP_LIMIT
+}
+
+enum TimeInForce {
+  GTC
+  DAY
+}
+
+enum OrderStatus {
+  PENDING
+  OPEN
+  TRIGGERED
+  FILLED
+  CANCELLED
+  REJECTED
+  EXPIRED
+}
+
+enum OrderRole {
+  ENTRY
+  STOP_LOSS
+  TAKE_PROFIT
+}
+
+enum CancelReason {
+  USER
+  OCO_SIBLING_FILLED
+  POSITION_CLOSED
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  accountId       String
+  account         Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  clientOrderId   String?
+  symbol          String
+  side            OrderSide
+  type            OrderType
+  role            OrderRole     @default(ENTRY)
+  status          OrderStatus
+  timeInForce     TimeInForce   @default(GTC)
+  quantity        Decimal       @db.Decimal(20, 8)
+  limitPrice      Decimal?      @db.Decimal(20, 8)
+  stopPrice       Decimal?      @db.Decimal(20, 8)
+  stopLossPrice   Decimal?      @db.Decimal(20, 8)
+  takeProfitPrice Decimal?      @db.Decimal(20, 8)
+  reservedCash    Decimal       @default(0) @db.Decimal(20, 2)
+  avgFillPrice    Decimal?      @db.Decimal(20, 8)
+  commission      Decimal       @default(0) @db.Decimal(20, 2)
+  parentOrderId   String?
+  parent          Order?        @relation("Bracket", fields: [parentOrderId], references: [id])
+  children        Order[]       @relation("Bracket")
+  ocoGroupId      String?
+  cancelReason    CancelReason?
+  rejectReason    String?
+  version         Int           @default(1)
+  expiresAt       DateTime?
+  triggeredAt     DateTime?
+  filledAt        DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  trades          Trade[]
+
+  @@unique([accountId, clientOrderId])
+  @@index([accountId, status])
+  @@index([symbol, status])
+  @@index([ocoGroupId])
+}
+
+model Trade {
+  id          String    @id @default(cuid())
+  orderId     String
+  order       Order     @relation(fields: [orderId], references: [id])
+  accountId   String
+  account     Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  symbol      String
+  side        OrderSide
+  quantity    Decimal   @db.Decimal(20, 8)
+  price       Decimal   @db.Decimal(20, 8)
+  amount      Decimal   @db.Decimal(20, 2)
+  commission  Decimal   @db.Decimal(20, 2)
+  realizedPnl Decimal?  @db.Decimal(20, 2)
+  executedAt  DateTime  @default(now())
+
+  @@index([accountId, executedAt, id])
+  @@index([accountId, symbol, executedAt, id])
+}
+
+model Position {
+  id          String    @id @default(cuid())
+  accountId   String
+  account     Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  symbol      String
+  quantity    Decimal   @db.Decimal(20, 8)
+  averageCost Decimal   @db.Decimal(20, 8)
+  realizedPnl Decimal   @default(0) @db.Decimal(20, 2)
+  openedAt    DateTime  @default(now())
+  closedAt    DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([accountId, symbol])
+  @@index([accountId])
 }

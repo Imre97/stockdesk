@@ -268,4 +268,8 @@ describe("isMarginDeficit", () => {
     expect(isMarginDeficit("0", "0", MAINTENANCE_MARGIN_RATE)).toBe(false);
     expect(isMarginDeficit("100000", "0", MAINTENANCE_MARGIN_RATE)).toBe(false);
   });
+
+  it("does not flag a long-only account whose equity turned negative", () => {
+    expect(isMarginDeficit("-500", "0", MAINTENANCE_MARGIN_RATE)).toBe(false);
+  });
 });

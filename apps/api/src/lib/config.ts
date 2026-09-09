@@ -1,3 +1,4 @@
+import { Decimal, decimalStringValue } from "@stockdesk/shared";
 import { z } from "zod";
 
 export const MARKET_DATA_PROVIDER_NAMES = ["alpaca", "finnhub", "simulated"] as const;
@@ -16,6 +17,15 @@ const providerListSchema = z
       .filter((name) => name !== ""),
   )
   .pipe(z.array(z.enum(MARKET_DATA_PROVIDER_NAMES)).min(1));
+
+const NEGATIVE_RATE_ERROR = "Expected a decimal at or above zero";
+
+function nonNegativeDecimalSchema(defaultValue: string): z.ZodType<Decimal, string | undefined> {
+  return decimalStringValue
+    .default(defaultValue)
+    .transform((value) => new Decimal(value))
+    .refine((value) => value.greaterThanOrEqualTo(0), { error: NEGATIVE_RATE_ERROR });
+}
 
 const optionalCredentialSchema = z
   .string()
@@ -49,6 +59,11 @@ const environmentSchema = z.object({
   SYMBOL_REFRESH_HOURS: z.coerce.number().int().positive().default(24),
   QUOTE_THROTTLE_PER_SECOND: z.coerce.number().int().positive().default(4),
   CANDLE_THINNING_INTERVAL_HOURS: z.coerce.number().int().positive().default(24),
+  COMMISSION_PER_ORDER: nonNegativeDecimalSchema("0.00"),
+  MARKET_ORDER_BUFFER: nonNegativeDecimalSchema("0.02"),
+  SHORT_MARGIN_RATE: nonNegativeDecimalSchema("0.5"),
+  MAINTENANCE_MARGIN_RATE: nonNegativeDecimalSchema("0.3"),
+  ORDER_EXPIRY_CHECK_SECONDS: z.coerce.number().int().positive().default(60),
 });
 
 export interface AppConfig {
@@ -78,6 +93,11 @@ export interface AppConfig {
   symbolRefreshHours: number;
   quoteThrottlePerSecond: number;
   candleThinningIntervalHours: number;
+  commissionPerOrder: Decimal;
+  marketOrderBuffer: Decimal;
+  shortMarginRate: Decimal;
+  maintenanceMarginRate: Decimal;
+  orderExpiryCheckSeconds: number;
   isProduction: boolean;
 }
 
@@ -122,6 +142,11 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     symbolRefreshHours: values.SYMBOL_REFRESH_HOURS,
     quoteThrottlePerSecond: values.QUOTE_THROTTLE_PER_SECOND,
     candleThinningIntervalHours: values.CANDLE_THINNING_INTERVAL_HOURS,
+    commissionPerOrder: values.COMMISSION_PER_ORDER,
+    marketOrderBuffer: values.MARKET_ORDER_BUFFER,
+    shortMarginRate: values.SHORT_MARGIN_RATE,
+    maintenanceMarginRate: values.MAINTENANCE_MARGIN_RATE,
+    orderExpiryCheckSeconds: values.ORDER_EXPIRY_CHECK_SECONDS,
     isProduction,
   };
 }

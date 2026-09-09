@@ -152,7 +152,11 @@ export function isMarginDeficit(
   shortValue: DecimalInput,
   maintenanceRate: DecimalInput,
 ): boolean {
-  return new Decimal(equity).lessThan(new Decimal(shortValue).times(maintenanceRate));
+  const shorts = new Decimal(shortValue);
+
+  if (shorts.lessThanOrEqualTo(0)) return false;
+
+  return new Decimal(equity).lessThan(shorts.times(maintenanceRate));
 }
 
 export function validateBracketPrices(input: BracketPricesInput): "INVALID_BRACKET_PRICE" | null {

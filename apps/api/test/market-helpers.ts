@@ -19,7 +19,7 @@ import { createUserRegistry, type UserRegistry } from "../src/ws/user-registry.j
 export const MARKET_NOW = new Date("2026-09-08T18:00:00.000Z");
 export const MARKET_SEED = 424242;
 
-const IDLE_TIMERS: BarAggregatorTimers = {
+export const IDLE_AGGREGATOR_TIMERS: BarAggregatorTimers = {
   setTimeout: () => null,
   clearTimeout: () => undefined,
 };
@@ -52,7 +52,7 @@ export function createTestMarket(options: CreateTestMarketOptions = {}): TestMar
     providers,
     now,
     log: (message) => logs.push(message),
-    aggregatorTimers: IDLE_TIMERS,
+    aggregatorTimers: IDLE_AGGREGATOR_TIMERS,
   });
 
   const app = createApp({ config, rateLimit: { enabled: false }, market: runtime });
@@ -112,7 +112,7 @@ export async function createTestMarketServer(
     providers,
     now,
     log: (message) => logs.push(message),
-    aggregatorTimers: IDLE_TIMERS,
+    aggregatorTimers: IDLE_AGGREGATOR_TIMERS,
   });
 
   const app = createApp({

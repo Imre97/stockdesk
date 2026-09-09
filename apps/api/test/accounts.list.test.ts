@@ -47,6 +47,12 @@ describe("GET /api/v1/accounts", () => {
     expect(account.unrealizedPnlPct).toBe("0.00");
     expect(account.dailyPnl).toBe("0.00");
     expect(account.dailyPnlPct).toBe("0.00");
+    expect(account.longValue).toBe("0.00");
+    expect(account.shortValue).toBe("0.00");
+    expect(account.shortMargin).toBe("0.00");
+    expect(account.reservedCash).toBe("0.00");
+    expect(account.buyingPower).toBe("100000.00");
+    expect(account.marginDeficit).toBe(false);
     expect(typeof account.createdAt).toBe("string");
   });
 

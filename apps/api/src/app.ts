@@ -10,6 +10,7 @@ import { AppError } from "./lib/errors.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createAccountsRouter } from "./modules/accounts/router.js";
 import type { AccountsDependencies } from "./modules/accounts/snapshot-writer.js";
+import { marginRatesOf } from "./modules/accounts/summary.js";
 import { createAuthRouter } from "./modules/auth/router.js";
 import { createHealthRouter, type DatabaseCheck } from "./modules/health/router.js";
 import { createMarketRouter } from "./modules/market/router.js";
@@ -68,6 +69,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   const dependencies: AccountsDependencies = {
     ...(options.deps ?? {}),
     prices: options.deps?.prices ?? market.priceService,
+    rates: options.deps?.rates ?? marginRatesOf(config),
   };
   const app = express();
 

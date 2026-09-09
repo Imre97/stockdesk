@@ -35,6 +35,7 @@ export const ORDER_ERROR_CODES = [
   "ORDER_NOT_MODIFIABLE",
   "ORDER_NOT_CANCELLABLE",
   "ORDER_VERSION_CONFLICT",
+  "PRICE_UNAVAILABLE",
 ] as const;
 
 export type OrderErrorCode = (typeof ORDER_ERROR_CODES)[number];

@@ -1,9 +1,22 @@
-import type { AccountSummaryDto, ServerMessage } from "@stockdesk/shared";
+import { Decimal, type AccountSummaryDto, type ServerMessage } from "@stockdesk/shared";
+import { getConfig } from "../../lib/config.js";
 import type { PriceService } from "../market/price-service.js";
+import {
+  listOpenPositionsByAccounts,
+  sumReservedCashByAccounts,
+} from "../orders/positions-repository.js";
 import { lastElapsedSessionOpen } from "./ny-time.js";
 import { listAccounts, listAllAccounts, type AccountRecord } from "./repository.js";
 import { referenceEquities, truncateToSecond, writeSnapshots } from "./snapshot-repository.js";
-import { accountEquity, toAccountSummary, valuePositions, type PositionInput } from "./summary.js";
+import {
+  accountEquity,
+  marginRatesOf,
+  toAccountSummary,
+  valuePositions,
+  NO_POSITIONS,
+  type MarginRates,
+  type PositionValues,
+} from "./summary.js";
 
 export type Broadcast = (userId: string, message: ServerMessage) => void;
 
@@ -12,39 +25,66 @@ export interface AccountsDependencies {
   now?: (() => Date) | undefined;
   reportError?: ((message: string) => void) | undefined;
   prices?: Pick<PriceService, "getLastPrices" | "getPrevClose"> | undefined;
+  rates?: MarginRates | undefined;
+}
+
+export interface AccountValues {
+  positions: Map<string, PositionValues>;
+  reserved: Map<string, Decimal>;
 }
 
 export function currentTime(dependencies: AccountsDependencies): Date {
   return (dependencies.now ?? (() => new Date()))();
 }
 
+function ratesOf(dependencies: AccountsDependencies): MarginRates {
+  return dependencies.rates ?? marginRatesOf(getConfig());
+}
+
 function defaultReportError(message: string): void {
   process.stderr.write(`${message}\n`);
+}
+
+export async function valueAccounts(
+  accountIds: string[],
+  dependencies: AccountsDependencies,
+): Promise<AccountValues> {
+  const [rows, reserved] = await Promise.all([
+    listOpenPositionsByAccounts(accountIds),
+    sumReservedCashByAccounts(accountIds),
+  ]);
+
+  const positions = new Map<string, PositionValues>();
+
+  for (const accountId of accountIds) {
+    positions.set(
+      accountId,
+      await valuePositions(rows.get(accountId) ?? [], dependencies.prices),
+    );
+  }
+
+  return { positions, reserved };
 }
 
 export async function summarizeAccounts(
   accounts: AccountRecord[],
   now: Date,
   dependencies: AccountsDependencies = {},
-  positionsByAccount: Map<string, PositionInput[]> = new Map(),
+  values?: AccountValues,
 ): Promise<AccountSummaryDto[]> {
-  const references = await referenceEquities(
-    accounts.map((account) => account.id),
-    lastElapsedSessionOpen(now),
+  const accountIds = accounts.map((account) => account.id);
+  const resolved = values ?? (await valueAccounts(accountIds, dependencies));
+  const references = await referenceEquities(accountIds, lastElapsedSessionOpen(now));
+  const rates = ratesOf(dependencies);
+
+  return accounts.map((account) =>
+    toAccountSummary(account, {
+      referenceEquity: references.get(account.id),
+      values: resolved.positions.get(account.id) ?? NO_POSITIONS,
+      reservedCash: resolved.reserved.get(account.id) ?? new Decimal("0"),
+      rates,
+    }),
   );
-
-  const summaries: AccountSummaryDto[] = [];
-
-  for (const account of accounts) {
-    const values = await valuePositions(
-      positionsByAccount.get(account.id) ?? [],
-      dependencies.prices,
-    );
-
-    summaries.push(toAccountSummary(account, references.get(account.id), values));
-  }
-
-  return summaries;
 }
 
 function groupByUser(accounts: AccountRecord[]): Map<string, AccountRecord[]> {
@@ -67,9 +107,17 @@ async function snapshotAndBroadcast(
 
   const now = currentTime(dependencies);
   const at = truncateToSecond(now);
+  const values = await valueAccounts(
+    accounts.map((account) => account.id),
+    dependencies,
+  );
 
   await writeSnapshots(
-    accounts.map((account) => ({ accountId: account.id, at, ...accountEquity(account) })),
+    accounts.map((account) => ({
+      accountId: account.id,
+      at,
+      ...accountEquity(account, values.positions.get(account.id) ?? NO_POSITIONS),
+    })),
   );
 
   const broadcast = dependencies.broadcast;
@@ -78,7 +126,7 @@ async function snapshotAndBroadcast(
   for (const [userId, owned] of groupByUser(accounts)) {
     broadcast(userId, {
       type: "account_summary",
-      accounts: await summarizeAccounts(owned, now, dependencies),
+      accounts: await summarizeAccounts(owned, now, dependencies, values),
     });
   }
 }

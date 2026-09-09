@@ -6,7 +6,7 @@ import { expect } from "vitest";
 import { prisma } from "../src/lib/prisma.js";
 
 export const MONETARY_KEY_PATTERN =
-  /cash|balance|amount|price|quantity|equity|positionsValue|unrealizedPnl|dailyPnl|averageCost|marketValue|marketCap|sharesOutstanding|peRatio|dividendYield|week52|open|high|low|close|volume|last|size|beta|(?<!ex)change/i;
+  /cash|balance|amount|price|quantity|equity|positionsValue|unrealizedPnl|realizedPnl|dailyPnl|averageCost|marketValue|marketCap|longValue|shortValue|shortMargin|buyingPower|sharesOutstanding|peRatio|dividendYield|week52|open|high|low|close|volume|last|size|beta|(?<!ex)change/i;
 
 export function uniqueEmail(prefix = "trader"): string {
   return `${prefix}-${randomBytes(6).toString("hex")}@example.com`;
@@ -117,6 +117,12 @@ export interface AccountSummaryBody {
   unrealizedPnlPct: string;
   dailyPnl: string;
   dailyPnlPct: string;
+  longValue: string;
+  shortValue: string;
+  shortMargin: string;
+  reservedCash: string;
+  buyingPower: string;
+  marginDeficit: boolean;
   createdAt: string;
 }
 
