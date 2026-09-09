@@ -1,4 +1,4 @@
-import { Decimal, orderSchema, type OrderDto, type TradeDto } from "@stockdesk/shared";
+import { Decimal, orderSchema, tradeSchema, type OrderDto, type TradeDto } from "@stockdesk/shared";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { orderDto, tradeDto } from "../../test/fixtures";
@@ -100,6 +100,15 @@ describe("orders store", () => {
     expect(trades).toHaveLength(TRADE_HISTORY_LIMIT);
     expect(trades[0]?.id).toBe(`trade-${String(TRADE_HISTORY_LIMIT)}`);
     expect(trades[trades.length - 1]?.id).toBe("trade-1");
+  });
+
+  it("stores an already parsed trade without re-parsing it", () => {
+    useOrdersStore.getState().upsertTrade(tradeSchema.parse(tradeDto({ id: "trade-9" })));
+
+    const trades = useOrdersStore.getState().tradesByAccountSymbol[tradesKey("acc-1", "TSLA")] ?? [];
+
+    expect(trades.map((trade) => trade.id)).toEqual(["trade-9"]);
+    expect(trades[0]?.amount).toBeInstanceOf(Decimal);
   });
 
   it("drops every order and trade on reset", () => {

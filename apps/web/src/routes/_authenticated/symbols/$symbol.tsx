@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_authenticated/symbols/$symbol")({
     }
   },
   loader: async ({ params }) => {
-    await ensureNamespaces("market");
+    await ensureNamespaces("market", "orders");
 
     if ((await loadSymbolDetail(params.symbol)) === "not-found") throw notFound();
   },

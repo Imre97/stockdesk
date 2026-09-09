@@ -1,4 +1,9 @@
-import { Decimal, positionSchema, type PositionRecordDto } from "@stockdesk/shared";
+import {
+  Decimal,
+  positionRecordSchema,
+  positionSchema,
+  type PositionRecordDto,
+} from "@stockdesk/shared";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { positionDto, positionRecordDto } from "../../test/fixtures";
@@ -81,6 +86,14 @@ describe("positions store", () => {
 
     expect(Object.keys(openPositions(ACCOUNT_ID))).toEqual(["AAPL"]);
     expect(Object.keys(openPositions(OTHER_ACCOUNT_ID))).toEqual(["TSLA"]);
+  });
+
+  it("stores an already parsed position record without re-parsing it", () => {
+    usePositionsStore
+      .getState()
+      .upsertPosition(positionRecordSchema.parse(positionRecordDto({ symbol: "TSLA", quantity: "-4.000000" })));
+
+    expect(openPositions(ACCOUNT_ID)["TSLA"]?.quantity.toString()).toBe("-4");
   });
 
   it("drops every account on reset", () => {

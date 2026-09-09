@@ -2,9 +2,9 @@ import type { SymbolDetail } from "@stockdesk/shared";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import { OrderPanel } from "../../orders/components/OrderPanel";
 import { useSidePanel } from "../page-hooks";
 import { KeyStats } from "./KeyStats";
-import { OrderSlotPlaceholder } from "./OrderSlotPlaceholder";
 
 export interface SidePanelProps {
   symbol: string;
@@ -29,7 +29,7 @@ export function SidePanel({ symbol, detail }: SidePanelProps) {
         </Button>
       </div>
       {panel.mode === "order" && panel.side !== null ? (
-        <OrderSlotPlaceholder onBack={panel.back} side={panel.side} symbol={symbol} />
+        <OrderPanel onBack={panel.back} side={panel.side} symbol={symbol} />
       ) : (
         <section className="flex flex-col gap-2">
           <h2 className="text-sm font-semibold">{t("stats.title")}</h2>

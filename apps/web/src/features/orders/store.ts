@@ -18,6 +18,7 @@ export interface OrdersState {
   idsBySymbol: Record<string, string[]>;
   tradesByAccountSymbol: Record<string, Trade[]>;
   upsertOrders: (orders: Order[]) => void;
+  upsertTrade: (trade: Trade) => void;
   applyOrderUpdate: (message: OrderUpdateMessage) => void;
   applyTrade: (message: TradeMessage) => void;
   reset: () => void;
@@ -49,6 +50,20 @@ function indexed(state: OrdersState, orders: Order[]): Partial<OrdersState> {
   return { ordersById, idsByAccount, idsBySymbol };
 }
 
+function withTrade(state: OrdersState, trade: Trade): Partial<OrdersState> {
+  const key = tradesKey(trade.accountId, trade.symbol);
+  const current = state.tradesByAccountSymbol[key] ?? [];
+
+  if (current.some((existing) => existing.id === trade.id)) return state;
+
+  return {
+    tradesByAccountSymbol: {
+      ...state.tradesByAccountSymbol,
+      [key]: [trade, ...current].slice(0, TRADE_HISTORY_LIMIT),
+    },
+  };
+}
+
 export const useOrdersStore = create<OrdersState>((set) => ({
   ordersById: {},
   idsByAccount: {},
@@ -57,23 +72,11 @@ export const useOrdersStore = create<OrdersState>((set) => ({
 
   upsertOrders: (orders) => set((state) => indexed(state, orders)),
 
+  upsertTrade: (trade) => set((state) => withTrade(state, trade)),
+
   applyOrderUpdate: (message) => set((state) => indexed(state, [orderSchema.parse(message.order)])),
 
-  applyTrade: (message) =>
-    set((state) => {
-      const trade = tradeSchema.parse(message.trade);
-      const key = tradesKey(trade.accountId, trade.symbol);
-      const current = state.tradesByAccountSymbol[key] ?? [];
-
-      if (current.some((existing) => existing.id === trade.id)) return state;
-
-      return {
-        tradesByAccountSymbol: {
-          ...state.tradesByAccountSymbol,
-          [key]: [trade, ...current].slice(0, TRADE_HISTORY_LIMIT),
-        },
-      };
-    }),
+  applyTrade: (message) => set((state) => withTrade(state, tradeSchema.parse(message.trade))),
 
   reset: () => set({ ordersById: {}, idsByAccount: {}, idsBySymbol: {}, tradesByAccountSymbol: {} }),
 }));

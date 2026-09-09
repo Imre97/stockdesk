@@ -32,7 +32,13 @@ vi.mock("../market/subscriptions", () => subscriptions);
 import { positionDto, positionRecordDto } from "../../test/fixtures";
 import { useAuthStore } from "../auth/store";
 import { useMarketStore } from "../market/store";
-import { usePosition, usePositionRows, usePositions, usePositionsQuoteSubscription } from "./hooks";
+import {
+  usePosition,
+  usePositionQuantity,
+  usePositionRows,
+  usePositions,
+  usePositionsQuoteSubscription,
+} from "./hooks";
 import { usePositionsStore } from "./store";
 
 const USER = {
@@ -176,6 +182,24 @@ describe("usePosition", () => {
 
     expect(held.result.current?.symbol).toBe("TSLA");
     expect(missing.result.current).toBeNull();
+  });
+});
+
+describe("usePositionQuantity", () => {
+  it("returns the signed quantity of the held symbol and zero for an unheld one", () => {
+    act(() => usePositionsStore.getState().setPositions("acc-1", POSITIONS.positions));
+
+    const held = renderHook(() => usePositionQuantity("acc-1", "tsla"), { wrapper });
+    const missing = renderHook(() => usePositionQuantity("acc-1", "MSFT"), { wrapper });
+
+    expect(held.result.current.toString()).toBe("10");
+    expect(missing.result.current.toString()).toBe("0");
+  });
+
+  it("returns zero without an account", () => {
+    const { result } = renderHook(() => usePositionQuantity(null, "TSLA"), { wrapper });
+
+    expect(result.current.toString()).toBe("0");
   });
 });
 

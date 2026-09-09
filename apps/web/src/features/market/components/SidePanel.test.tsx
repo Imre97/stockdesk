@@ -1,47 +1,57 @@
-import { symbolDetailSchema, type SymbolDetailDto } from "@stockdesk/shared";
+import type { ReactNode } from "react";
+import { symbolDetailSchema } from "@stockdesk/shared";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const ordersApi = vi.hoisted(() => ({ previewOrder: vi.fn(), placeOrder: vi.fn() }));
+
+const marketApi = vi.hoisted(() => ({
+  searchSymbols: vi.fn(),
+  getSymbol: vi.fn(),
+  getBars: vi.fn(),
+  getMarketStatus: vi.fn(),
+  getTrades: vi.fn(),
+}));
+
+const subscriptions = vi.hoisted(() => ({
+  subscribeQuote: vi.fn(() => () => undefined),
+  subscribeBars: vi.fn(() => () => undefined),
+}));
+
+interface LinkProps {
+  to: string;
+  children: ReactNode;
+  className?: string;
+}
+
+vi.mock("../../orders/api", () => ordersApi);
+vi.mock("../api", () => marketApi);
+vi.mock("../subscriptions", () => subscriptions);
+vi.mock("@tanstack/react-router", () => ({
+  Link: ({ to, children, className }: LinkProps) => (
+    <a className={className} href={to}>
+      {children}
+    </a>
+  ),
+}));
 
 import { i18n } from "../../../i18n";
+import { accountSummaryDto, orderPreviewDto, symbolDetailDto } from "../../../test/fixtures";
+import { MARKET_OPEN, resetOrderPanelStores } from "../../../test/order-panel";
 import { SidePanel } from "./SidePanel";
 
-const DETAIL: SymbolDetailDto = {
-  symbol: "TSLA",
-  name: "Tesla, Inc.",
-  exchange: "NASDAQ",
-  currency: "USD",
-  shortable: true,
-  fractionable: true,
-  industry: "Automobiles",
-  logoUrl: null,
-  websiteUrl: null,
-  quote: {
-    last: "251.3400",
-    prevClose: "248.9000",
-    open: "249.5000",
-    high: "252.0000",
-    low: "248.1000",
-    volume: "51234000",
-    change: "2.4400",
-    changePct: "0.98",
-    at: "2026-09-08T14:30:01.123Z",
-  },
-  stats: {
-    marketCap: "800000000000.00",
-    sharesOutstanding: "3180000000",
-    peRatio: "65.20",
-    week52High: "299.2900",
-    week52Low: "138.8000",
-    beta: "2.05",
-    dividendYield: null,
-  },
-};
+const DETAIL = symbolDetailDto();
+
+let queryClient: QueryClient;
 
 function renderPanel() {
   return render(
     <I18nextProvider i18n={i18n}>
-      <SidePanel detail={symbolDetailSchema.parse(DETAIL)} symbol="TSLA" />
+      <QueryClientProvider client={queryClient}>
+        <SidePanel detail={symbolDetailSchema.parse(DETAIL)} symbol="TSLA" />
+      </QueryClientProvider>
     </I18nextProvider>,
   );
 }
@@ -53,6 +63,17 @@ function click(name: string): void {
 function orderSlot(): HTMLElement {
   return screen.getByRole("region", { name: i18n.t("market:orderSlot.title") });
 }
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  resetOrderPanelStores([accountSummaryDto()]);
+  marketApi.getSymbol.mockResolvedValue(symbolDetailSchema.parse(DETAIL));
+  marketApi.getMarketStatus.mockResolvedValue(MARKET_OPEN);
+  ordersApi.previewOrder.mockResolvedValue(orderPreviewDto());
+});
 
 describe("SidePanel", () => {
   it("shows the key statistics by default", () => {
@@ -67,8 +88,9 @@ describe("SidePanel", () => {
 
     click(i18n.t("market:side.buy"));
 
-    expect(within(orderSlot()).getByText(i18n.t("market:orderSlot.placeholder"))).toBeInTheDocument();
-    expect(within(orderSlot()).getByText(i18n.t("market:trades.side.BUY"))).toBeInTheDocument();
+    expect(
+      within(orderSlot()).getByRole("button", { name: i18n.t("market:trades.side.BUY") }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByText(i18n.t("market:stats.title"))).not.toBeInTheDocument();
 
     click(i18n.t("market:side.back"));
@@ -82,6 +104,8 @@ describe("SidePanel", () => {
 
     click(i18n.t("market:side.sell"));
 
-    expect(within(orderSlot()).getByText(i18n.t("market:trades.side.SELL"))).toBeInTheDocument();
+    expect(
+      within(orderSlot()).getByRole("button", { name: i18n.t("market:trades.side.SELL") }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 });

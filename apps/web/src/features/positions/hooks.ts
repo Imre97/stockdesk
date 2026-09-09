@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { QUOTE_SUBSCRIPTION_LIMIT } from "@stockdesk/shared";
+import { Decimal, QUOTE_SUBSCRIPTION_LIMIT, type DecimalValue } from "@stockdesk/shared";
 import { useQuery } from "@tanstack/react-query";
 
 import * as accountsApi from "../accounts/api";
@@ -14,6 +14,7 @@ import { usePositionsStore, type PositionsState } from "./store";
 
 const SYMBOL_SEPARATOR = ",";
 const NO_ROWS: PositionViewModel[] = [];
+const ZERO_QUANTITY = new Decimal(0);
 
 function openPositions(state: PositionsState, accountId: string | null): Record<string, PositionEntry> | undefined {
   return accountId === null ? undefined : state.positionsByAccount[accountId];
@@ -83,6 +84,13 @@ export function usePosition(accountId: string | null, symbol: string): PositionV
     () => (entry === undefined ? null : toPositionRow(entry, quote ?? null, locale)),
     [entry, locale, quote],
   );
+}
+
+export function usePositionQuantity(accountId: string | null, symbol: string): DecimalValue {
+  const upper = symbol.toUpperCase();
+  const quantity = usePositionsStore((state) => openPositions(state, accountId)?.[upper]?.quantity);
+
+  return quantity ?? ZERO_QUANTITY;
 }
 
 export function usePositionsQuoteSubscription(accountId: string | null): void {

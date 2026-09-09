@@ -17,6 +17,7 @@ const EXPECTED_NAMESPACES = [
   "dashboard",
   "funding",
   "market",
+  "orders",
   "settings",
   "shell",
 ];

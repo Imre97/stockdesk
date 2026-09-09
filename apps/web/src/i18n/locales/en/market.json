@@ -37,7 +37,6 @@
   "side.sell": "Sell",
   "side.back": "Back to key stats",
   "orderSlot.title": "New order",
-  "orderSlot.placeholder": "The order form arrives with the Orders module.",
   "tabs.position": "Position",
   "tabs.trades": "Trade history",
   "position.columns.quantity": "Qty",
