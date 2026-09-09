@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppConfig } from "../../../lib/config.js";
 import { loadConfig } from "../../../lib/config.js";
 import { createProvidersFromConfig } from "./factory.js";
+import { SIMULATED_HISTORY_DEPTH } from "./simulated/buckets.js";
 import type { Capability, MarketDataProvider } from "./types.js";
 
 const BASE_ENVIRONMENT = {
@@ -25,6 +26,7 @@ function stubProvider(name: MarketDataProvider["name"], capabilities: Capability
   return {
     name,
     capabilities: new Set(capabilities),
+    historyDepth: SIMULATED_HISTORY_DEPTH,
     async start() {
       return undefined;
     },

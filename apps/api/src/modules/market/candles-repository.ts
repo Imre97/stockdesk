@@ -3,6 +3,7 @@ import { toApiString, type Decimal, type Timeframe } from "@stockdesk/shared";
 import { prisma } from "../../lib/prisma.js";
 
 const PRICE_PLACES = 8;
+const UPSERT_BATCH_SIZE = 500;
 
 export interface CandleRow {
   time: Date;
@@ -93,21 +94,44 @@ export async function existsBarBefore(
   return older !== null;
 }
 
+function tuple(bar: CandleInput): Prisma.Sql {
+  const data = values(bar);
+
+  return Prisma.sql`(gen_random_uuid()::text, ${bar.symbolId}, ${bar.timeframe},
+    ${bar.time.toISOString()}::timestamp, ${data.open}::decimal, ${data.high}::decimal,
+    ${data.low}::decimal, ${data.close}::decimal, ${data.volume}::decimal, true)`;
+}
+
+async function upsertBatch(bars: CandleInput[]): Promise<number> {
+  return await prisma.$executeRaw`
+    INSERT INTO "Candle" (
+      "id", "symbolId", "timeframe", "time", "open", "high", "low", "close", "volume", "isFinal"
+    )
+    VALUES ${Prisma.join(bars.map(tuple))}
+    ON CONFLICT ("symbolId", "timeframe", "time") DO UPDATE SET
+      "open" = EXCLUDED."open",
+      "high" = EXCLUDED."high",
+      "low" = EXCLUDED."low",
+      "close" = EXCLUDED."close",
+      "volume" = EXCLUDED."volume",
+      "isFinal" = true
+  `;
+}
+
+/**
+ * The provider is authoritative for a bucket it has served: the upsert overwrites whatever the live
+ * aggregator left behind for the same `(symbolId, timeframe, time)`, forming or final, so a partial
+ * session aggregate is replaced and no served bucket stays `isFinal = false`. Batching keeps the
+ * bind parameter count of one statement well under the PostgreSQL limit for a large page.
+ */
 export async function insertFinalBars(bars: CandleInput[]): Promise<number> {
-  if (bars.length === 0) return 0;
+  let written = 0;
 
-  const result = await prisma.candle.createMany({
-    data: bars.map((bar) => ({
-      symbolId: bar.symbolId,
-      timeframe: bar.timeframe,
-      time: bar.time,
-      isFinal: true,
-      ...values(bar),
-    })),
-    skipDuplicates: true,
-  });
+  for (let offset = 0; offset < bars.length; offset += UPSERT_BATCH_SIZE) {
+    written += await upsertBatch(bars.slice(offset, offset + UPSERT_BATCH_SIZE));
+  }
 
-  return result.count;
+  return written;
 }
 
 export async function saveFormingBar(bar: CandleInput): Promise<void> {

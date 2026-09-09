@@ -1,6 +1,8 @@
+import { SIMULATED_HISTORY_DEPTH } from "../src/modules/market/providers/simulated/buckets.js";
 import type {
   AssetRecord,
   Capability,
+  HistoryDepth,
   MarketDataProvider,
   ProviderName,
   Quote,
@@ -13,6 +15,7 @@ export interface FakeProviderOptions {
   capabilities: Capability[];
   getBars?: MarketDataProvider["getBars"];
   getProfile?: MarketDataProvider["getProfile"];
+  historyDepth?: HistoryDepth;
 }
 
 export function createFakeProvider(options: FakeProviderOptions): MarketDataProvider {
@@ -23,6 +26,7 @@ export function createFakeProvider(options: FakeProviderOptions): MarketDataProv
   return {
     name: options.name,
     capabilities: new Set(options.capabilities),
+    historyDepth: options.historyDepth ?? SIMULATED_HISTORY_DEPTH,
     start: async (): Promise<void> => undefined,
     stop: async (): Promise<void> => undefined,
     subscribeTrades: async (): Promise<void> => undefined,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadConfig } from "../../lib/config.js";
 import { createMarketRuntime } from "./runtime.js";
+import { SIMULATED_HISTORY_DEPTH } from "./providers/simulated/buckets.js";
 import type { Capability, MarketDataProvider } from "./providers/types.js";
 
 const NOW = new Date("2026-09-08T18:00:00.000Z");
@@ -15,6 +16,7 @@ function stubProvider(): MarketDataProvider {
   return {
     name: "simulated",
     capabilities: new Set<Capability>(["bars"]),
+    historyDepth: SIMULATED_HISTORY_DEPTH,
     start: async (): Promise<void> => undefined,
     stop: async (): Promise<void> => undefined,
     subscribeTrades: async (): Promise<void> => undefined,

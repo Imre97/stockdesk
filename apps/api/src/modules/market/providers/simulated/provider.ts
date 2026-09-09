@@ -12,7 +12,7 @@ import type {
 } from "../types.js";
 import { CAPABILITIES } from "../types.js";
 import { buildBars } from "./bars.js";
-import { minuteRefOf, type MinuteRef } from "./buckets.js";
+import { minuteRefOf, SIMULATED_HISTORY_DEPTH, type MinuteRef } from "./buckets.js";
 import type { RandomStream } from "./prng.js";
 import { createStream } from "./prng.js";
 import { buildProfile, buildQuote } from "./quotes.js";
@@ -85,6 +85,7 @@ export function createSimulatedProvider(options: SimulatedProviderOptions = {}):
   return {
     name: "simulated",
     capabilities: new Set(CAPABILITIES),
+    historyDepth: SIMULATED_HISTORY_DEPTH,
     emitTick,
 
     async start(): Promise<void> {

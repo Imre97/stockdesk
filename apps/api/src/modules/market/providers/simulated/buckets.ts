@@ -1,5 +1,6 @@
 import type { Timeframe } from "@stockdesk/shared";
 
+import type { HistoryDepth } from "../types.js";
 import {
   BUCKET_EPOCH_MS,
   bucketStartMs,
@@ -13,6 +14,8 @@ export const MS_PER_MINUTE = 60_000;
 export const MS_PER_DAY = 86_400_000;
 export const MINUTES_PER_DAY = 1440;
 export const DAYS_PER_YEAR = 365;
+
+export const SIMULATED_HISTORY_DEPTH: HistoryDepth = { dailyDays: 730, intradayDays: 30 };
 
 const HALF_DAY_MS = MS_PER_DAY / 2;
 const EPOCH_DAY_START_MS = bucketStartMs(BUCKET_EPOCH_MS, "1D");
@@ -71,7 +74,7 @@ export function minuteRefOf(time: Date): MinuteRef {
 }
 
 export function historyStartMs(timeframe: Timeframe, now: Date): number {
-  return historyFloorMs(now.getTime(), timeframe);
+  return Math.max(historyFloorMs(now.getTime(), timeframe, SIMULATED_HISTORY_DEPTH), EPOCH_MS);
 }
 
 export function indexRange(first: number, count: number): number[] {

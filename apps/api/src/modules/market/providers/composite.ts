@@ -3,6 +3,7 @@ import type {
   Bar,
   BarsQuery,
   Capability,
+  HistoryDepth,
   MarketDataProvider,
   ProfileOptions,
   Quote,
@@ -12,6 +13,7 @@ import type {
 
 const SIMULATED = "simulated";
 const RETRIES_PER_PROVIDER = 2;
+const NO_HISTORY: HistoryDepth = { dailyDays: 0, intradayDays: 0 };
 
 export class ProviderUnavailableError extends Error {
   readonly capability: Capability;
@@ -37,6 +39,7 @@ export interface CompositeProviderOptions {
 export type CompositeProvider = MarketDataProvider & {
   activeProviderNames(): string[];
   streamProviderName(): string | null;
+  barsHistoryDepth(symbol: string | null): HistoryDepth;
 };
 
 type Attempt<T> = { ok: true; value: T } | { ok: false };
@@ -114,9 +117,18 @@ export function createCompositeProvider({ providers, log }: CompositeProviderOpt
     throw new ProviderUnavailableError("stream", label);
   }
 
+  function barsHistoryDepth(symbol: string | null): HistoryDepth {
+    return capableProviders("bars", symbol)[0]?.historyDepth ?? NO_HISTORY;
+  }
+
   return {
     name: "composite",
     capabilities,
+    barsHistoryDepth,
+
+    get historyDepth(): HistoryDepth {
+      return barsHistoryDepth(null);
+    },
 
     activeProviderNames(): string[] {
       return providers.map((provider) => provider.name);

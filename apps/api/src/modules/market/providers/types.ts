@@ -36,6 +36,11 @@ export interface Quote {
   at: Date;
 }
 
+export interface HistoryDepth {
+  readonly dailyDays: number;
+  readonly intradayDays: number;
+}
+
 export interface BarsQuery {
   symbol: string;
   timeframe: Timeframe;
@@ -80,6 +85,7 @@ export type TradeHandler = (trade: Trade) => void;
 export interface MarketDataProvider {
   readonly name: ProviderName;
   readonly capabilities: ReadonlySet<Capability>;
+  readonly historyDepth: HistoryDepth;
   start(): Promise<void>;
   stop(): Promise<void>;
   subscribeTrades(symbols: string[]): Promise<void>;

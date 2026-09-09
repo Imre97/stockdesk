@@ -139,8 +139,12 @@ export function createCandleCache({ composite, now, log }: CandleCacheOptions): 
       const nowMs = now().getTime();
       const until = end ?? new Date(nowMs);
       const settled = new Date(bucketStartMs(Math.min(until.getTime(), nowMs), timeframe));
+      const depth = composite.barsHistoryDepth(symbol);
       const lowerBound = new Date(
-        Math.max(windowStartMs(until.getTime(), timeframe, limit), historyFloorMs(nowMs, timeframe)),
+        Math.max(
+          windowStartMs(until.getTime(), timeframe, limit),
+          historyFloorMs(nowMs, timeframe, depth),
+        ),
       );
 
       const cached = await candlesRepository.listBarsBefore(record.id, timeframe, until, limit);

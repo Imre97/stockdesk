@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { MarketDataProviderName } from "../../../lib/config.js";
 import { createCompositeProvider, ProviderUnavailableError } from "./composite.js";
+import { SIMULATED_HISTORY_DEPTH } from "./simulated/buckets.js";
 import type { Bar, Capability, MarketDataProvider, Quote, SymbolProfile, Trade, TradeHandler } from "./types.js";
 
 interface FakeOptions {
@@ -70,6 +71,7 @@ function createFakeProvider(options: FakeOptions): FakeProvider {
   const fake: FakeProvider = {
     name: options.name,
     capabilities: new Set(options.capabilities),
+    historyDepth: SIMULATED_HISTORY_DEPTH,
     started: 0,
     stopped: 0,
     async start() {

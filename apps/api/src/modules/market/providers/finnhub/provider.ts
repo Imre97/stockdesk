@@ -3,6 +3,7 @@ import type {
   AssetRecord,
   Bar,
   Capability,
+  HistoryDepth,
   MarketDataProvider,
   ProfileOptions,
   Quote,
@@ -20,6 +21,8 @@ const FINNHUB_CAPABILITIES: ReadonlySet<Capability> = new Set<Capability>([
   "stream",
   "search",
 ]);
+
+const FINNHUB_HISTORY_DEPTH: HistoryDepth = { dailyDays: 0, intradayDays: 0 };
 
 export interface FinnhubProviderOptions {
   key: string;
@@ -55,6 +58,7 @@ export function createFinnhubProvider(options: FinnhubProviderOptions): MarketDa
   return {
     name: "finnhub",
     capabilities: FINNHUB_CAPABILITIES,
+    historyDepth: FINNHUB_HISTORY_DEPTH,
 
     start: (): Promise<void> => {
       stream.start();

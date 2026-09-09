@@ -4,6 +4,7 @@ import type {
   Bar,
   BarsQuery,
   Capability,
+  HistoryDepth,
   MarketDataProvider,
   Quote,
   SymbolProfile,
@@ -18,6 +19,15 @@ import { createAlpacaStream } from "./stream.js";
 import { createAlpacaSubscriptions } from "./subscriptions.js";
 
 const ALPACA_CAPABILITIES: ReadonlySet<Capability> = new Set<Capability>(["stream", "bars", "search"]);
+
+const DAYS_PER_YEAR = 365;
+const DAILY_HISTORY_YEARS = 10;
+const INTRADAY_HISTORY_YEARS = 5;
+
+export const ALPACA_HISTORY_DEPTH: HistoryDepth = {
+  dailyDays: DAILY_HISTORY_YEARS * DAYS_PER_YEAR,
+  intradayDays: INTRADAY_HISTORY_YEARS * DAYS_PER_YEAR,
+};
 
 export interface AlpacaProviderOptions {
   key: string;
@@ -70,6 +80,7 @@ export function createAlpacaProvider(options: AlpacaProviderOptions): MarketData
   return {
     name: "alpaca",
     capabilities: ALPACA_CAPABILITIES,
+    historyDepth: ALPACA_HISTORY_DEPTH,
 
     start: (): Promise<void> => {
       stream.start();
