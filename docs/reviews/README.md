@@ -16,3 +16,4 @@ One report per module review run, produced by `/module-review <module>`. Newest 
 | 2026-09-08 | market-data | BLOCKED | 4 | [2026-09-08-market-data.md](2026-09-08-market-data.md) |
 | 2026-09-08 | market-data | BLOCKED | 1 | [2026-09-08-market-data-2.md](2026-09-08-market-data-2.md) |
 | 2026-09-08 | market-data | BLOCKED | 1 | [2026-09-08-market-data-3.md](2026-09-08-market-data-3.md) |
+| 2026-09-09 | market-data | PASS WITH SHOULD-FIX | 0 | [2026-09-09-market-data.md](2026-09-09-market-data.md) |

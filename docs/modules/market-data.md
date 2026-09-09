@@ -1,6 +1,6 @@
 # Module 3: Market Data and Symbol Page
 
-Status: specified
+Status: implemented
 
 ## Scope
 
@@ -128,7 +128,6 @@ model Candle {
   isFinal   Boolean  @default(true)
 
   @@unique([symbolId, timeframe, time])
-  @@index([symbolId, timeframe, time])
 }
 
 model CandleCoverage {

@@ -112,9 +112,16 @@ Format: `L-<n>` id, source module and date, what happened, the rule, where it ap
 - Rule: anything the server needs at boot is prepared inside the web server command (migrate, truncate) before the server starts, and the global setup only waits for a readiness signal (`GET /api/v1/health` `ready: true`). The parent process holds the original environment, so guards that compare database URLs run in the Playwright config, not in the child command.
 - Applies to: `apps/e2e/playwright.config.ts`, `prepare-database.ts`, `global-setup.ts`, every job that seeds data at boot.
 
+### L-18 Two writers on one table need a written ownership rule before the first line of code
+
+- Source: market-data, 2026-09-08 to 2026-09-09. The `Candle` table is written by provider fetches (cache) and by the live aggregator (forming and final bars). Reviews 2, 3 and 4 each found one new defect at that seam: coverage marked a forming bucket covered, `skipDuplicates` let a partial live row beat the provider's bar, and the sweep can still finalize over a provider row. Every fix round closed what it was given and the next review found the neighbouring case, because no rule said who owns a row and when.
+- Rule: when two components write the same table, the spec pre-review (L-1) states the ownership rule per row state before implementation ("for a closed bucket the provider is authoritative; the aggregator may only write while the bucket is forming; coverage never extends past what was stored"), and the first test of the module exercises the handover in both directions (aggregator row then provider fetch, provider row then late aggregator write). A conditional write (L-6) carries the predicate that encodes the rule (`WHERE "isFinal" = false`).
+- Applies to: spec pre-review, repository writes shared by a cache and a live feed, Module 4's order engine (positions written by fills and by corrections).
+
 ## Record of module cycles
 
 | Module | Date | Review rounds | Blockers found | Root causes |
 |--------|------|---------------|----------------|-------------|
 | auth | 2026-09-08 | 4 to `implemented` (BLOCKED, PASS WITH SHOULD-FIX, BLOCKED, PASS), then 2 delta rounds on the tech-debt burn that should not have triggered fix rounds | 3 | L-6, L-7, L-2 with L-9; loop: L-11 |
 | dashboard | 2026-09-08 | 3 (BLOCKED, BLOCKED, final delta); pre-review (L-1) batched 33 spec gaps into 4 user questions | 3 | untested hook (test plan not enforced), deposit page seam (L-13), logout state leak (L-12); SQL `AT TIME ZONE` on a `timestamp` column found as should-fix |
+| market-data | 2026-09-08 to 2026-09-09 | 4 (BLOCKED, BLOCKED, BLOCKED, PASS WITH SHOULD-FIX); pre-review batched the spec gaps into 4 user questions, 3 more decision batches mid-implementation; the user authorized round 4 after the L-11 stop | 6 (4 in review 1, 1 each in reviews 2 and 3) | fixture unit mismatch (L-14), fixed-duration consumer after a definition change (L-15), test-first slippage in an oversized phase (L-16), e2e harness order (L-17), two writers on the Candle table without an ownership rule (L-18, three consecutive seam defects) |
