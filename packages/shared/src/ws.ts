@@ -7,7 +7,9 @@ import {
   barDtoSchema,
   marketStatusValueSchema,
   timeframeSchema,
+  tradeDtoSchema,
 } from "./market.js";
+import { orderDtoSchema, positionRecordDtoSchema } from "./orders.js";
 
 export const QUOTE_SUBSCRIPTION_LIMIT = 50;
 export const BAR_SUBSCRIPTION_LIMIT = 5;
@@ -87,6 +89,21 @@ export const marketStatusMessageSchema = z.object({
   nextCloseAt: z.iso.datetime().nullable(),
 });
 
+export const orderUpdateMessageSchema = z.object({
+  type: z.literal("order_update"),
+  order: orderDtoSchema,
+});
+
+export const tradeMessageSchema = z.object({
+  type: z.literal("trade"),
+  trade: tradeDtoSchema,
+});
+
+export const positionUpdateMessageSchema = z.object({
+  type: z.literal("position_update"),
+  position: positionRecordDtoSchema,
+});
+
 export const wsErrorMessageSchema = z.object({
   type: z.literal("error"),
   code: z.enum(MARKET_ERROR_CODES),
@@ -99,6 +116,9 @@ export const serverMessageSchema = z.discriminatedUnion("type", [
   quoteMessageSchema,
   barMessageSchema,
   marketStatusMessageSchema,
+  orderUpdateMessageSchema,
+  tradeMessageSchema,
+  positionUpdateMessageSchema,
   wsErrorMessageSchema,
 ]);
 
@@ -115,5 +135,8 @@ export type AccountSummaryMessage = z.infer<typeof accountSummaryMessageSchema>;
 export type QuoteMessage = z.infer<typeof quoteMessageSchema>;
 export type BarMessage = z.infer<typeof barMessageSchema>;
 export type MarketStatusMessage = z.infer<typeof marketStatusMessageSchema>;
+export type OrderUpdateMessage = z.infer<typeof orderUpdateMessageSchema>;
+export type TradeMessage = z.infer<typeof tradeMessageSchema>;
+export type PositionUpdateMessage = z.infer<typeof positionUpdateMessageSchema>;
 export type WsErrorMessage = z.infer<typeof wsErrorMessageSchema>;
 export type ServerMessage = z.infer<typeof serverMessageSchema>;

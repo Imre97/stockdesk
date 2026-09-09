@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { ACCOUNT_ERROR_CODES } from "./accounts.js";
+import type { ErrorCode } from "./api-error.js";
 import { API_ERROR_CODES, apiErrorSchema, isApiErrorEnvelope } from "./api-error.js";
+import { AUTH_ERROR_CODES } from "./auth.js";
+import { MARKET_ERROR_CODES } from "./market.js";
+import { ORDER_ERROR_CODES } from "./orders.js";
 
 const ENVELOPE = { error: { code: "EMAIL_TAKEN", message: "Email already registered" } };
 
@@ -84,5 +89,38 @@ describe("API_ERROR_CODES", () => {
 
   it.each([["VALIDATION_ERROR"], ["UNAUTHORIZED"]])("owns the shared code %s", (code) => {
     expect(API_ERROR_CODES).toContain(code);
+  });
+});
+
+describe("ErrorCode", () => {
+  const OWNED_CODES: [string, readonly string[]][] = [
+    ["api", API_ERROR_CODES],
+    ["auth", AUTH_ERROR_CODES],
+    ["accounts", ACCOUNT_ERROR_CODES],
+    ["market", MARKET_ERROR_CODES],
+    ["orders", ORDER_ERROR_CODES],
+  ];
+
+  it("keeps the module code arrays disjoint so every code has one owner", () => {
+    const owners = new Map<string, string>();
+
+    for (const [owner, codes] of OWNED_CODES) {
+      for (const code of codes) {
+        expect(owners.get(code) ?? owner).toBe(owner);
+        owners.set(code, owner);
+      }
+    }
+  });
+
+  it("accepts every module code", () => {
+    const codes: ErrorCode[] = [
+      ...API_ERROR_CODES,
+      ...AUTH_ERROR_CODES,
+      ...ACCOUNT_ERROR_CODES,
+      ...MARKET_ERROR_CODES,
+      ...ORDER_ERROR_CODES,
+    ];
+
+    expect(codes).toHaveLength(OWNED_CODES.reduce((total, [, owned]) => total + owned.length, 0));
   });
 });
