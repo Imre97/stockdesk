@@ -3,6 +3,8 @@ import type { ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
 import { AppError } from "../lib/errors.js";
 
+const ISSUE_ERROR_CODES: readonly ErrorCode[] = ["INVALID_STOP_LIMIT_PRICES"];
+
 interface ErrorEnvelope {
   error: {
     code: ErrorCode;
@@ -16,6 +18,23 @@ function envelope(code: ErrorCode, message: string, details?: unknown): ErrorEnv
     return { error: { code, message } };
   }
   return { error: { code, message, details } };
+}
+
+/**
+ * A cross-field refinement carries its API error code in the issue params, so the envelope reports
+ * the dedicated code instead of the generic validation failure without matching on message text.
+ */
+function issueErrorCode(error: ZodError): ErrorCode {
+  for (const issue of error.issues) {
+    const params = "params" in issue ? (issue.params as { code?: unknown } | undefined) : undefined;
+    const code = params?.code;
+
+    if (typeof code === "string" && ISSUE_ERROR_CODES.includes(code as ErrorCode)) {
+      return code as ErrorCode;
+    }
+  }
+
+  return "VALIDATION_ERROR";
 }
 
 function isPayloadTooLarge(error: unknown): boolean {
@@ -38,7 +57,9 @@ export const errorHandler: ErrorRequestHandler = (error, _request, response, _ne
   }
 
   if (error instanceof ZodError) {
-    response.status(422).json(envelope("VALIDATION_ERROR", "Request validation failed.", error.issues));
+    response
+      .status(422)
+      .json(envelope(issueErrorCode(error), "Request validation failed.", error.issues));
     return;
   }
 

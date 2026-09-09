@@ -16,7 +16,7 @@ export interface MarketStatusAt {
   nextCloseAt: Date | null;
 }
 
-interface Session {
+export interface Session {
   preStart: Date;
   open: Date;
   close: Date;
@@ -27,7 +27,7 @@ export function isNyseTradingDay(day: string): boolean {
   return !isWeekendDay(day) && !isNyseHoliday(day);
 }
 
-function sessionOf(day: string): Session {
+export function sessionOf(day: string): Session {
   const early = isEarlyClose(day);
 
   return {
@@ -38,7 +38,7 @@ function sessionOf(day: string): Session {
   };
 }
 
-function nextTradingDay(day: string): string {
+export function nextTradingDay(day: string): string {
   let candidate = shiftDay(day, 1);
 
   for (let index = 0; index < MAX_LOOKAHEAD_DAYS && !isNyseTradingDay(candidate); index += 1) {

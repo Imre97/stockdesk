@@ -1,6 +1,6 @@
 import type { AppConfig } from "./lib/config.js";
 import { createSnapshotJob, type SnapshotJob } from "./modules/accounts/snapshot-job.js";
-import type { Broadcast } from "./modules/accounts/snapshot-writer.js";
+import type { AccountsDependencies, Broadcast } from "./modules/accounts/snapshot-writer.js";
 import { deleteExpiredRefreshTokens } from "./modules/auth/repository.js";
 import type { MarketJobs } from "./modules/market/jobs.js";
 import { alwaysReady, type Readiness } from "./readiness.js";
@@ -13,6 +13,7 @@ export interface BootDependencies {
   snapshotJob: SnapshotJob;
   marketJobs: MarketJobs;
   broadcast: Broadcast;
+  prices: NonNullable<AccountsDependencies["prices"]>;
   now: () => Date;
   readiness: Readiness;
 }
@@ -42,6 +43,7 @@ export async function runBootTasks(
     createSnapshotJob({
       config,
       broadcast: dependencies.broadcast,
+      prices: dependencies.prices,
       now: dependencies.now,
       reportError,
     });

@@ -1,3 +1,4 @@
+import { Decimal } from "@stockdesk/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runBootTasks } from "../src/boot.js";
 import type { SnapshotJob } from "../src/modules/accounts/snapshot-job.js";
@@ -5,7 +6,7 @@ import type { MarketJobs } from "../src/modules/market/jobs.js";
 import { loadConfig } from "../src/lib/config.js";
 import { prisma } from "../src/lib/prisma.js";
 import { truncateAll } from "./db.js";
-import { uniqueEmail } from "./helpers.js";
+import { firstOf, uniqueEmail } from "./helpers.js";
 
 const MILLISECONDS_PER_MINUTE = 60 * 1000;
 
@@ -233,6 +234,35 @@ describe("runBootTasks", () => {
 
     expect(markReady).toHaveBeenCalledTimes(1);
     expect(reported.some((message) => message.includes("market jobs cannot start"))).toBe(true);
+  });
+
+  it("values the boot snapshot positions at the last price of the price service", async () => {
+    const userId = await createUserId();
+    const account = await prisma.account.create({
+      data: { userId, name: "Main", cashBalance: "1000.00" },
+    });
+
+    await prisma.position.create({
+      data: { accountId: account.id, symbol: "TSLA", quantity: "10", averageCost: "150" },
+    });
+
+    const tasks = await runBootTasks(config, {
+      pruneExpiredRefreshTokens: () => Promise.resolve(0),
+      prices: {
+        getLastPrices: (symbols: string[]) =>
+          Promise.resolve(new Map(symbols.map((symbol) => [symbol, new Decimal("200")]))),
+        getPrevClose: () => Promise.resolve(null),
+      },
+    });
+    tasks.stop();
+
+    const snapshot = firstOf(
+      await prisma.accountEquitySnapshot.findMany({ where: { accountId: account.id } }),
+      "equity snapshot",
+    );
+
+    expect(snapshot.positionsValue.toString()).toBe("2000");
+    expect(snapshot.equity.toString()).toBe("3000");
   });
 
   it("reports a failing prune without throwing", async () => {

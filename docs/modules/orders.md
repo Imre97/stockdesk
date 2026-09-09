@@ -48,7 +48,7 @@ Out of scope: partial fills, margin interest and borrow fees, automatic liquidat
 ### Price validation on placement
 
 - BUY `LIMIT`: `limitPrice` may be anything; a limit above the last price fills immediately and is allowed.
-- Stop-loss and take-profit relative to the expected entry price (last price for market and stop orders, limit price otherwise):
+- Stop-loss and take-profit relative to the expected entry price (last price for market and stop orders, `stopPrice` for a stop order when no last price is known yet, limit price otherwise):
   - BUY entry: `stopLossPrice < entry < takeProfitPrice`.
   - SELL entry (opening or increasing a short): `takeProfitPrice < entry < stopLossPrice`.
   - Brackets are allowed only when the entry opens or increases a position in its own direction. An entry that reduces or closes an existing position, or crosses zero, returns `BRACKET_NOT_ALLOWED`.
@@ -79,9 +79,9 @@ Reservation per order, commission added:
 Reference price: `limitPrice` for `LIMIT` and `STOP_LIMIT`, `stopPrice` for `STOP`, `last * (1 + MARKET_ORDER_BUFFER)` for `MARKET` (default buffer `0.02`). A sell that crosses zero reserves only for the short-opening part.
 
 - Placement fails with `422 INSUFFICIENT_BUYING_POWER` including `{ "required", "available" }` in `details` when the reservation exceeds buying power. Orders that reduce or close a position are always accepted regardless of buying power.
-- Modifying an order recomputes its reservation and re-checks buying power.
+- Modifying an order recomputes its reservation and re-checks buying power. A reservation is otherwise frozen at placement or modification: fills of neighbouring orders or price moves do not recompute it. Tests recompute a `MARKET` reservation from the last price they emitted before placement.
 - On fill the reservation is released and cash moves by `fillPrice * quantity` (debit for BUY, credit for SELL) minus commission. On cancel, reject, or expiry the reservation is released.
-- Margin deficit: when `shortValue > 0` and `equity < shortValue * MAINTENANCE_MARGIN_RATE` (default `0.3`) the account is flagged `marginDeficit = true` in the account summary. New position-increasing orders are rejected with `422 MARGIN_DEFICIT`; closing orders remain allowed. No automatic liquidation.
+- Margin deficit: when `shortValue > 0` and `equity < shortValue * MAINTENANCE_MARGIN_RATE` (default `0.3`) the account is flagged `marginDeficit = true` in the account summary. New position-increasing orders are rejected with `422 MARGIN_DEFICIT`; closing orders remain allowed. No automatic liquidation. Position-increasing means every effect except `reduce_*` and `close_*`; a flip opens a position and is subject to both the margin deficit and the buying power check.
 
 ### Brackets
 
@@ -413,7 +413,7 @@ Replaces `OrderSlotPlaceholder` from Module 3. Opens with the side chosen by the
 - Bracket display: entry rows expandable to show their children; child rows carry a role badge (`SL`, `TP`) and a link to the parent. Active bracket children of a filled entry appear in the `Active` filter as their own rows as well.
 - Actions on active rows: `Modify` opens a dialog with the editable fields for that order state (quantity, limit price, stop price, time in force, and bracket prices on an unfilled entry); `Cancel` asks for confirmation. Both send the current `version`; a `409` prompts to reload the row.
 - Filled, cancelled, rejected, expired rows: `Details` opens a drawer with the order, its trades, and its children.
-- Live updates from `order_update`, `trade` messages through the orders store; no polling.
+- Live updates from `order_update`, `trade` messages through the orders store; no polling. A `trade` message also invalidates the symbol trades query so the Module 3 trade history panel refetches. The web derives the sign of a trade row from `side` (`amount` is unsigned on the wire).
 
 ### Symbol page additions
 

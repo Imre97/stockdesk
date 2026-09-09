@@ -8,6 +8,7 @@ import {
   type ServerMessage,
 } from "@stockdesk/shared";
 import type { Express } from "express";
+import request from "supertest";
 import { expect } from "vitest";
 import { createApp } from "../src/app.js";
 import { loadConfig, type AppConfig } from "../src/lib/config.js";
@@ -17,6 +18,7 @@ import {
   type SimulatedProvider,
 } from "../src/modules/market/providers/simulated/provider.js";
 import { createMarketRuntime, type MarketRuntime } from "../src/modules/market/runtime.js";
+import { authHeader } from "./helpers.js";
 import { createFakeProvider, type FakeProvider } from "./market-fakes.js";
 import { IDLE_AGGREGATOR_TIMERS, MARKET_NOW, MARKET_SEED } from "./market-helpers.js";
 
@@ -226,4 +228,28 @@ export async function expectReservationInvariant(
   }
 
   expect(stored.toString()).toBe(recomputed.toString());
+}
+
+export async function postOrder(
+  app: Express,
+  token: string,
+  accountId: string,
+  body: object,
+): Promise<request.Response> {
+  return await request(app)
+    .post(`/api/v1/accounts/${accountId}/orders`)
+    .set(authHeader(token))
+    .send(body);
+}
+
+export async function postOrderPreview(
+  app: Express,
+  token: string,
+  accountId: string,
+  body: object,
+): Promise<request.Response> {
+  return await request(app)
+    .post(`/api/v1/accounts/${accountId}/orders/preview`)
+    .set(authHeader(token))
+    .send(body);
 }

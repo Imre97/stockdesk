@@ -15,6 +15,7 @@ import { createAuthRouter } from "./modules/auth/router.js";
 import { createHealthRouter, type DatabaseCheck } from "./modules/health/router.js";
 import { createMarketRouter } from "./modules/market/router.js";
 import { createMarketRuntime, type MarketRuntime } from "./modules/market/runtime.js";
+import { createOrdersRouter } from "./modules/orders/router.js";
 import { createSettingsRouter } from "./modules/settings/router.js";
 import type { Readiness } from "./readiness.js";
 import { mountStaticWeb } from "./static-web.js";
@@ -86,6 +87,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   apiRouter.use("/health", createHealthRouter(options.checkDatabase, options.readiness));
   apiRouter.use("/auth", createAuthRouter(config, authRateLimiter, dependencies));
   apiRouter.use("/accounts", createAccountsRouter(config, dependencies));
+  apiRouter.use("/accounts/:id/orders", createOrdersRouter(config, market, dependencies));
   apiRouter.use("/market", createMarketRouter(config, market));
   apiRouter.use("/settings", createSettingsRouter(config));
   app.use("/api/v1", apiRouter);
