@@ -37,9 +37,13 @@ Out of scope: partial fills, margin interest and borrow fees, automatic liquidat
 - Direction: an order that moves the signed position away from zero opens or increases a position; one that moves it toward zero reduces or closes it. An order may cross zero (long 10, sell 15 gives short 5); the engine books it as a close of 10 and an open of 5.
 - Short selling: a SELL that would make the position negative requires `Symbol.shortable = true` (`SYMBOL_NOT_SHORTABLE`) and a whole-share quantity for the part that opens the short (`FRACTIONAL_SHORT_NOT_ALLOWED`). Short sale proceeds are credited to cash; the short's market value counts against equity.
 - Fills are whole: an order fills its full quantity in one trade or not at all.
-- Orders are accepted while the market is closed and stay `OPEN` until the next trade tick. The UI labels such orders "waiting for market open".
-- `DAY` orders expire at the next 16:00 America/New_York after creation, also under the simulated provider. `GTC` orders never expire.
+- Available quantity: position-effect classification uses the position quantity net of the quantity of the account's open closing orders on the same symbol (`OPEN` and `TRIGGERED`, bracket children included). Long 10 with an open SELL 10 makes a second SELL 10 an `open_short`, so it needs `shortable`, whole shares, and a short margin reservation. The same rule applies to shorts and open covering BUYs.
+- Every order type is evaluated once at placement against the last known price when the market is open (a marketable limit fills at once, a stop already past its trigger fires at once); otherwise it rests until the next trade tick. Orders are accepted while the market is closed and stay `OPEN` until the next trade tick. The UI labels such orders "waiting for market open". With no last price known while the market is open, the order rests until the first tick.
+- A `STOP` triggers and fills on the same tick; a `STOP_LIMIT` evaluates its limit condition on the triggering tick as well. One `order_update` is emitted for the resulting state with `triggeredAt` set; `TRIGGERED` is persisted only when the limit condition does not hold yet.
+- `DAY` orders expire at the close of the next regular session per the NYSE calendar (`calendar.ts` `sessionOf`, early closes at 13:00): an order placed during a session expires at that session's close; one placed after the close, on a weekend or on a holiday expires at the close of the next trading day. The calendar is used under every provider, the simulated one included. `GTC` orders never expire.
 - Commission: `COMMISSION_PER_ORDER` (default `0.00`) charged on each fill as part of the cash movement.
+- Rounding: cash movements (`Trade.amount`, `CashTransaction.amount`, commission) are rounded to cents with `ROUND_HALF_EVEN`; reservations are rounded up to cents (`ROUND_UP`); `averageCost` keeps 8 decimals. `Trade.amount` is the gross `price * quantity`, always positive; the side and the `CashTransaction` sign carry the direction.
+- Buying power is equity based, so a fill can take `cash` below zero when the account holds long value. No automatic liquidation exists; the margin deficit flag is the only guard.
 
 ### Price validation on placement
 
@@ -50,6 +54,8 @@ Out of scope: partial fills, margin interest and borrow fees, automatic liquidat
   - Brackets are allowed only when the entry opens or increases a position in its own direction. An entry that reduces or closes an existing position, or crosses zero, returns `BRACKET_NOT_ALLOWED`.
 - `STOP_LIMIT`: BUY requires `limitPrice >= stopPrice`; SELL requires `limitPrice <= stopPrice`.
 - Prices have at most 4 decimal places and are positive (`VALIDATION_ERROR`).
+- An order carries exactly the prices its type needs: a non-null `limitPrice` on a `MARKET` or `STOP` order, or a non-null `stopPrice` on a `MARKET` or `LIMIT` order, is a `VALIDATION_ERROR`. The web form sends `null` for the fields the chosen type does not use. Cross-field zod issues carry the error code in `params.code` (`VALIDATION_ERROR` or `INVALID_STOP_LIMIT_PRICES`); the API maps that, not the message text.
+- A `MARKET` order (placement and preview) needs a known last price for its reservation; with none, the request fails with `422 PRICE_UNAVAILABLE`. `LIMIT`, `STOP` and `STOP_LIMIT` orders reserve from their own prices and rest until the first tick.
 
 ### Buying power, margin, and reservations
 
@@ -75,7 +81,7 @@ Reference price: `limitPrice` for `LIMIT` and `STOP_LIMIT`, `stopPrice` for `STO
 - Placement fails with `422 INSUFFICIENT_BUYING_POWER` including `{ "required", "available" }` in `details` when the reservation exceeds buying power. Orders that reduce or close a position are always accepted regardless of buying power.
 - Modifying an order recomputes its reservation and re-checks buying power.
 - On fill the reservation is released and cash moves by `fillPrice * quantity` (debit for BUY, credit for SELL) minus commission. On cancel, reject, or expiry the reservation is released.
-- Margin deficit: when `equity < shortValue * MAINTENANCE_MARGIN_RATE` (default `0.3`) the account is flagged `marginDeficit = true` in the account summary. New position-increasing orders are rejected with `422 MARGIN_DEFICIT`; closing orders remain allowed. No automatic liquidation.
+- Margin deficit: when `shortValue > 0` and `equity < shortValue * MAINTENANCE_MARGIN_RATE` (default `0.3`) the account is flagged `marginDeficit = true` in the account summary. New position-increasing orders are rejected with `422 MARGIN_DEFICIT`; closing orders remain allowed. No automatic liquidation.
 
 ### Brackets
 
@@ -107,10 +113,21 @@ PENDING -> OPEN -> FILLED
 OPEN -> TRIGGERED -> FILLED | CANCELLED | EXPIRED      (STOP and STOP_LIMIT only)
 ```
 
-- `PENDING` exists only inside the placement transaction; clients see `OPEN`, `FILLED`, or `REJECTED` in the placement response.
+- `PENDING` exists only inside the placement transaction; clients see `OPEN` or `FILLED` in the placement response. Placement-time validation failures are `422` errors and persist nothing.
+- `REJECTED` is an engine-time outcome only: the fill transaction could not execute an order that was valid at placement (the symbol lost `shortable` or `fractionable`, no price for the fill, a database conflict that cannot be retried). `rejectReason` holds a short code; the reservation is released and an `order_update` is pushed.
 - `TRIGGERED` marks a stop that has become a market or limit order and is waiting for its fill condition.
-- Modify is allowed in `OPEN` and `TRIGGERED` (for `STOP_LIMIT` the limit price only once triggered). Cancel is allowed in `OPEN` and `TRIGGERED`.
-- Optimistic concurrency: every order carries a `version`; modify and cancel require the client's `version`, mismatch returns `409 ORDER_VERSION_CONFLICT`.
+- Modify is allowed in `OPEN` and `TRIGGERED` (for `STOP_LIMIT` the limit price only once triggered). Cancel is allowed in `OPEN` and `TRIGGERED`. Setting a bracket price to `null` on an unfilled entry removes that bracket. A bracket child's quantity cannot be raised above the absolute position quantity (`VALIDATION_ERROR`).
+- Optimistic concurrency: every order carries a `version`; modify and cancel require the client's `version`, mismatch returns `409 ORDER_VERSION_CONFLICT`. Every state write increments `version`.
+- `cancelReason` is one of `USER`, `OCO_SIBLING_FILLED`, `POSITION_CLOSED` (`CancelReason` enum).
+
+### Write ownership (L-18)
+
+Three writers touch the order tables. The rule per row:
+
+- `Order`: the user path (place, modify, cancel) writes with `WHERE id = ? AND version = ?`; the engine path (trigger, fill, child creation, child quantity adjustment, OCO cancel) and the expiry job write with `WHERE id = ? AND status IN ('OPEN', 'TRIGGERED')`. `updateMany` with `count === 0` means the other writer won and the caller re-reads or skips. The engine re-reads the row inside the fill transaction; the in-memory index is a hint, never the source of truth.
+- `Position`: written only by the engine inside a fill transaction, serialized per symbol by the engine queue. Nothing else writes a position row.
+- `Account.cashBalance`: written by deposits (Module 2), fills (this module) and transfers (Module 5), all through one atomic SQL increment (`SET "cashBalance" = "cashBalance" + delta`) inside the writer's transaction, with the `CashTransaction.balanceAfter` taken from the `RETURNING` value. Reserved cash is never stored on the account; it is recomputed from `OPEN` and `TRIGGERED` orders on every read.
+- `Trade` and `CashTransaction` rows are evidence (L-9): never updated or deleted by a user action.
 
 ## Data model (Prisma)
 
@@ -120,40 +137,43 @@ enum OrderType { MARKET LIMIT STOP STOP_LIMIT }
 enum TimeInForce { GTC DAY }
 enum OrderStatus { PENDING OPEN TRIGGERED FILLED CANCELLED REJECTED EXPIRED }
 enum OrderRole { ENTRY STOP_LOSS TAKE_PROFIT }
+enum CancelReason { USER OCO_SIBLING_FILLED POSITION_CLOSED }
 
 model Order {
-  id              String      @id @default(cuid())
+  id              String        @id @default(cuid())
   accountId       String
-  account         Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account         Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  clientOrderId   String?
   symbol          String
   side            OrderSide
   type            OrderType
-  role            OrderRole   @default(ENTRY)
+  role            OrderRole     @default(ENTRY)
   status          OrderStatus
-  timeInForce     TimeInForce @default(GTC)
-  quantity        Decimal
-  limitPrice      Decimal?
-  stopPrice       Decimal?
-  stopLossPrice   Decimal?
-  takeProfitPrice Decimal?
-  reservedCash    Decimal     @default(0)
-  avgFillPrice    Decimal?
-  commission      Decimal     @default(0)
+  timeInForce     TimeInForce   @default(GTC)
+  quantity        Decimal       @db.Decimal(20, 8)
+  limitPrice      Decimal?      @db.Decimal(20, 8)
+  stopPrice       Decimal?      @db.Decimal(20, 8)
+  stopLossPrice   Decimal?      @db.Decimal(20, 8)
+  takeProfitPrice Decimal?      @db.Decimal(20, 8)
+  reservedCash    Decimal       @default(0) @db.Decimal(20, 2)
+  avgFillPrice    Decimal?      @db.Decimal(20, 8)
+  commission      Decimal       @default(0) @db.Decimal(20, 2)
   parentOrderId   String?
-  parent          Order?      @relation("Bracket", fields: [parentOrderId], references: [id])
-  children        Order[]     @relation("Bracket")
+  parent          Order?        @relation("Bracket", fields: [parentOrderId], references: [id])
+  children        Order[]       @relation("Bracket")
   ocoGroupId      String?
-  cancelReason    String?
+  cancelReason    CancelReason?
   rejectReason    String?
-  version         Int         @default(1)
+  version         Int           @default(1)
   expiresAt       DateTime?
   triggeredAt     DateTime?
   filledAt        DateTime?
   cancelledAt     DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
   trades          Trade[]
 
+  @@unique([accountId, clientOrderId])
   @@index([accountId, status])
   @@index([symbol, status])
   @@index([ocoGroupId])
@@ -167,15 +187,15 @@ model Trade {
   account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   symbol      String
   side        OrderSide
-  quantity    Decimal
-  price       Decimal
-  amount      Decimal
-  commission  Decimal
-  realizedPnl Decimal?
+  quantity    Decimal  @db.Decimal(20, 8)
+  price       Decimal  @db.Decimal(20, 8)
+  amount      Decimal  @db.Decimal(20, 2)
+  commission  Decimal  @db.Decimal(20, 2)
+  realizedPnl Decimal? @db.Decimal(20, 2)
   executedAt  DateTime @default(now())
 
-  @@index([accountId, executedAt])
-  @@index([accountId, symbol, executedAt])
+  @@index([accountId, executedAt, id])
+  @@index([accountId, symbol, executedAt, id])
 }
 
 model Position {
@@ -183,9 +203,9 @@ model Position {
   accountId   String
   account     Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
   symbol      String
-  quantity    Decimal
-  averageCost Decimal
-  realizedPnl Decimal   @default(0)
+  quantity    Decimal   @db.Decimal(20, 8)
+  averageCost Decimal   @db.Decimal(20, 8)
+  realizedPnl Decimal   @default(0) @db.Decimal(20, 2)
   openedAt    DateTime  @default(now())
   closedAt    DateTime?
   updatedAt   DateTime  @updatedAt
@@ -195,9 +215,11 @@ model Position {
 }
 ```
 
-`Account` gains relations `orders Order[]`, `trades Trade[]`, `positions Position[]`. `Symbol` (Module 3) gains `shortable Boolean @default(true)` and `fractionable Boolean @default(true)`, filled from the Alpaca asset attributes `shortable` and `fractionable`; the simulated universe sets both per ticker.
+`Account` gains relations `orders Order[]`, `trades Trade[]`, `positions Position[]`. `Symbol.shortable` and `Symbol.fractionable` already exist since Module 3 (filled from the Alpaca asset attributes; the simulated universe sets both per ticker); no schema change for them.
 
-`AccountSummary` (Module 2) gains `longValue`, `shortValue`, `shortMargin`, `reservedCash`, `buyingPower`, `marginDeficit`.
+`AccountSummary` (Module 2) gains `longValue`, `shortValue`, `shortMargin`, `reservedCash`, `buyingPower` (all decimal strings, 2 places) and `marginDeficit` (boolean). `positionsValue` stays and equals `longValue - shortValue`. Equity snapshots (`AccountEquitySnapshot`) keep their three columns; the snapshot writer now loads the open positions of every account it snapshots and values them through the batched price lookup (TD-56), so `positionsValue` and `equity` in snapshots become real. Two fills of one account inside the same second share one snapshot row (`skipDuplicates`); the `account_summary` broadcast still happens for each.
+
+Serialization places (L-14): quantities 6 (`"10.000000"`), prices and `averageCost` and `avgFillPrice` 4, money (`reservedCash`, `commission`, `amount`, `realizedPnl`, summary fields) 2. The JSON examples below follow these places.
 
 ## Execution engine
 
@@ -234,7 +256,7 @@ Base path `/api/v1`, all protected. Account scoping: an account of another user 
   "symbol": "TSLA",
   "side": "BUY",
   "type": "LIMIT",
-  "quantity": "10",
+  "quantity": "10.000000",
   "limitPrice": "250.0000",
   "stopPrice": null,
   "timeInForce": "GTC",
@@ -250,13 +272,14 @@ Base path `/api/v1`, all protected. Account scoping: an account of another user 
 {
   "id": "clx...",
   "accountId": "clx...",
+  "clientOrderId": null,
   "symbol": "TSLA",
   "side": "BUY",
   "type": "LIMIT",
   "role": "ENTRY",
   "status": "OPEN",
   "timeInForce": "GTC",
-  "quantity": "10",
+  "quantity": "10.000000",
   "limitPrice": "250.0000",
   "stopPrice": null,
   "stopLossPrice": "240.0000",
@@ -270,7 +293,9 @@ Base path `/api/v1`, all protected. Account scoping: an account of another user 
   "rejectReason": null,
   "version": 1,
   "expiresAt": null,
+  "triggeredAt": null,
   "filledAt": null,
+  "cancelledAt": null,
   "createdAt": "2026-09-08T14:31:00.000Z",
   "updatedAt": "2026-09-08T14:31:00.000Z"
 }
@@ -280,13 +305,13 @@ Base path `/api/v1`, all protected. Account scoping: an account of another user 
 
 ```json
 {
-  "quantity": "3.978912",
+  "quantity": "3.978674",
   "estimatedPrice": "251.3400",
   "estimatedCost": "1000.00",
   "reservedCash": "1020.00",
   "commission": "0.00",
   "positionEffect": "open_long",
-  "positionAfter": "3.978912",
+  "positionAfter": "3.978674",
   "buyingPowerBefore": "100000.00",
   "buyingPowerAfter": "98980.00",
   "expectedExecution": "immediate",
@@ -300,7 +325,25 @@ Base path `/api/v1`, all protected. Account scoping: an account of another user 
 
 ### Error codes
 
-`INSUFFICIENT_BUYING_POWER`, `MARGIN_DEFICIT`, `SYMBOL_NOT_SHORTABLE`, `FRACTIONAL_NOT_ALLOWED`, `FRACTIONAL_SHORT_NOT_ALLOWED`, `BRACKET_NOT_ALLOWED`, `INVALID_BRACKET_PRICE`, `INVALID_STOP_LIMIT_PRICES`, `ORDER_NOT_FOUND`, `ORDER_NOT_MODIFIABLE`, `ORDER_NOT_CANCELLABLE`, `ORDER_VERSION_CONFLICT`, `SYMBOL_NOT_FOUND`, `ACCOUNT_NOT_FOUND`, `VALIDATION_ERROR`.
+New in `ORDER_ERROR_CODES` (`packages/shared/src/orders.ts`), each with its only HTTP status:
+
+| Code | Status |
+|------|--------|
+| `INSUFFICIENT_BUYING_POWER` | 422, `details: { required, available }` |
+| `MARGIN_DEFICIT` | 422 |
+| `SYMBOL_NOT_SHORTABLE` | 422 |
+| `FRACTIONAL_NOT_ALLOWED` | 422 |
+| `FRACTIONAL_SHORT_NOT_ALLOWED` | 422 |
+| `BRACKET_NOT_ALLOWED` | 422 |
+| `INVALID_BRACKET_PRICE` | 422 |
+| `INVALID_STOP_LIMIT_PRICES` | 422 |
+| `ORDER_NOT_FOUND` | 404 |
+| `ORDER_NOT_MODIFIABLE` | 422 |
+| `ORDER_NOT_CANCELLABLE` | 422 |
+| `ORDER_VERSION_CONFLICT` | 409 |
+| `PRICE_UNAVAILABLE` | 422 |
+
+Reused from existing arrays, not duplicated: `SYMBOL_NOT_FOUND` (404, market), `ACCOUNT_NOT_FOUND` (404, accounts), `VALIDATION_ERROR` (422, api). The preview endpoint throws the same errors as placement; its `warnings` array carries only non-blocking codes: `MARKET_CLOSED`, `IMMEDIATE_FILL`, `OPENS_SHORT`.
 
 ## WebSocket
 
@@ -316,9 +359,10 @@ Pushed to every socket of the owning user, no subscription required:
 
 ## Shared package
 
-- `packages/shared/src/orders.ts`: enums as zod enums, `placeOrderSchema` with cross-field refinements (required prices per type, stop-limit relation, bracket direction), `modifyOrderSchema`, `cancelOrderSchema`, `orderSchema`, `orderPreviewSchema`, `positionSchema` (moved here from accounts, re-exported), `tradeSchema` (moved here from market, re-exported).
-- `packages/shared/src/order-math.ts`: pure Decimal functions used by both API and web: `sharesFromAmount(amount, price, fractionable)` (round down to 6 decimals, or to a whole share), `estimateCost`, `positionEffect(currentQty, side, qty)`, `reservationFor(order, positionEffect, referencePrice, shortMarginRate, commission)`, `buyingPower(inputs)`, `nextAverageCost`, `realizedPnlFor`, `splitCrossingFill`, `validateBracketPrices(side, entry, sl, tp)`. Unit tested once, imported everywhere.
-- `packages/shared/src/ws.ts`: extend the server message union.
+- `packages/shared/src/orders.ts`: enums as zod enums, `ORDER_ERROR_CODES`, `QUANTITY_DECIMALS = 6` and `PRICE_DECIMALS = 4` constants, `placeOrderSchema` with cross-field refinements (required prices per type, stop-limit relation, bracket direction), `modifyOrderSchema`, `cancelOrderSchema`, `orderDtoSchema` / `orderSchema`, `orderPreviewSchema`, `ordersQuerySchema`, `positionRecordDtoSchema` / `positionRecordSchema` (the raw row: `id`, `accountId`, `symbol`, `quantity`, `averageCost`, `realizedPnl`, `openedAt`, `closedAt`, `updatedAt`; carried by `position_update`), `insufficientBuyingPowerDetailsSchema`.
+- `packages/shared/src/accounts.ts`: `positionSchema` (the valued view returned by `GET /accounts/:id/positions`) stays where it is and gains `realizedPnl`. `packages/shared/src/market.ts`: `tradeSchema` stays and gains `accountId` and `commission`. `accountSummarySchema` gains the six summary fields.
+- `packages/shared/src/order-math.ts`: pure Decimal functions used by both API and web: `sharesFromAmount(amount, price, fractionable)` (round down to 6 decimals, or to a whole share), `estimateCost`, `positionEffect(currentQty, side, qty)`, `reservationFor({ side, effect, quantity, openingQuantity, referencePrice, shortMarginRate, commission, role })` (any role other than `ENTRY` reserves `0`), `buyingPower(inputs)`, `nextAverageCost`, `realizedPnlFor`, `splitCrossingFill`, `validateBracketPrices(side, entry, sl, tp)`. Unit tested once, imported everywhere.
+- `packages/shared/src/ws.ts`: extend the server message union (`order_update`, `trade`, `position_update`). The web client drops any frame that fails the union parse, so this lands before any web work.
 
 ## Frontend
 
@@ -350,7 +394,7 @@ Replaces `OrderSlotPlaceholder` from Module 3. Opens with the side chosen by the
 +--------------------------------+
 ```
 
-- Account select lists the user's accounts with buying power; defaults to the active account.
+- Account select lists the user's accounts with buying power. It is bound to the global active account (`useSelectAccount`): choosing an account in the panel changes the sidebar's active account, so the position, trade and orders panels under the chart always show the account the order goes to. Seam invariant (L-13): at any moment the panel's account id equals `activeAccountId`; one test crosses the seam.
 - Unit dropdown `Shares | USD`. In USD mode the hint shows the resulting share count (fractional to 6 decimals on fractionable symbols, whole otherwise) and submit sends that share count. In Shares mode the hint shows the estimated cost. Both use `sharesFromAmount` and `estimateCost` from shared order math. Quantity input accepts decimals only when the symbol is fractionable.
 - Position effect line under the quantity, from the preview: `Opens long`, `Adds to long`, `Reduces long`, `Closes long`, `Opens short`, `Covers short`, `Flips to short`, and so on. When the SELL would open a short the submit button reads `Sell short 10 TSLA` and a `SHORT` badge with the margin requirement appears; non-shortable symbols show the explanation and disable that path.
 - Order type dropdown reveals the price inputs it needs; price inputs prefill with the last price.
@@ -403,9 +447,27 @@ COMMISSION_PER_ORDER=0.00
 MARKET_ORDER_BUFFER=0.02
 SHORT_MARGIN_RATE=0.5
 MAINTENANCE_MARGIN_RATE=0.3
-QUANTITY_DECIMALS=6
 ORDER_EXPIRY_CHECK_SECONDS=60
 ```
+
+All five are parsed in `apps/api/src/lib/config.ts` with the defaults above (`zod` decimal strings for the rates, integer for the interval). `QUANTITY_DECIMALS` is a shared constant, not an environment variable, because the shared zod schema needs it at build time.
+
+## Decisions (pre-review 2026-09-09)
+
+Answers from the spec pre-review (L-1). Everything above already reflects them.
+
+1. Tech debt in scope as Phase 0: TD-77, TD-78, TD-79 (candle cache seam) and TD-56 (batched `getLastPrices`, needed by the snapshot writer once positions exist). TD-67 is fixed inside the module when the WebSocket subscribe path is touched. TD-75 and TD-28 move to Module 5.
+2. Available quantity for position-effect classification is net of the account's open closing orders on the same symbol (see Order semantics). Prevents a second "closing" sell from flipping into an unmargined short.
+3. The order panel's account select is bound to the global active account (see Order panel).
+4. Positions on the web are a client store (`features/positions/store.ts`) fed by `GET /accounts/:id/positions` on load and `position_update` afterwards; unrealized and daily P&L are computed in `features/positions/mappers.ts` from the market store's quote (`lastPrice`, `prevClose`), so rows move with every tick. `usePositionsQuoteSubscription(accountId)` subscribes the quotes of every open position of the active account (bounded by `QUOTE_SUBSCRIPTION_LIMIT`). `usePositionRows` (dashboard) and `useSymbolPosition` (market page) read from this store; the Module 2 query hook `usePositions` becomes the store's loader.
+5. `DAY` orders expire at the next regular session close per the NYSE calendar, under every provider.
+6. `REJECTED` is an engine-time outcome only; placement validation is a `422` that persists nothing.
+7. Test layers: shared unit tests, api integration and engine unit tests, web store, reducer and render tests, plus one Playwright spec `orders.spec.ts` (market BUY on the symbol page, fill dialog, position row on the portfolio page, row in the Orders tab). Seven implementation phases: 0 debt, A shared, B1 placement and validation, B2 engine, fills and brackets, B3 modify, cancel, expiry, listing and summary, C1 web positions and order panel, C2 Orders tab and dialogs; api and web phases run in parallel by workspace with one api test run at a time.
+8. Serialization, rounding, enums, `clientOrderId` uniqueness, `@db.Decimal` scales, the write ownership rule, immediate evaluation of every order type at placement, same-tick stop fills, negative cash after equity-based fills, `QUANTITY_DECIMALS` as a shared constant: recorded in the sections above.
+9. Test seam for market hours and scripted prices: integration tests build the market runtime with a fake `alpaca` stream provider from `apps/api/test/market-fakes.ts` extended with `emit(trade)`, so the calendar drives `getMarketStatus` and tests dictate the tick price and time (`now` injected). The simulated provider stays for symbol seeding (`seedSymbols`). Engine and expiry job receive `now: () => Date` like the snapshot job; no fake timers for order logic.
+10. `useOrderForm` is a thin hook over a pure reducer in `features/orders/order-form.ts` (state, transitions, unit conversion, field visibility, validation), tested without React. Missing shadcn primitives added: `checkbox`, `badge`, `sheet`; the status segmented control is hand-rolled like `RangeSelector` (`role="group"`, `aria-pressed`).
+12. Shared math rounding (Phase A): `buyingPower` rounds `equity`, `shortMargin` and `buyingPower` half-even to cents; `nextAverageCost` rounds half-even to 8 places; `estimateCost` and `realizedPnlFor` round half-even to cents; `sharesFromAmount` rounds down. The spec's USD-mode example was corrected from `3.978912` to `3.978674` (`1000 / 251.34` rounded down to 6 places; the cost and reservation figures in the same example already matched the corrected value).
+11. The order panel keeps `role="region"` with the `market:orderSlot.title` label and the "Back to key stats" button so the Module 3 e2e assertions hold; `orderSlot.placeholder` is removed. Nav tabs become `[Portfolio] [Orders] [Reports] [Deposit]`; the e2e `TABS` list and the i18n `EXPECTED_NAMESPACES` list are updated with the new `orders` namespace.
 
 ## Acceptance criteria
 
@@ -430,7 +492,7 @@ ORDER_EXPIRY_CHECK_SECONDS=60
 16. Repeating a placement with the same `clientOrderId` returns the existing order with `200` and creates nothing new.
 17. Two ticks for the same symbol processed concurrently never double-fill an order (engine queue test).
 18. After a fill the account summary reflects `positionsValue`, unrealized and daily P&L from the price service, and `account_summary`, `trade`, `order_update`, `position_update` arrive on the owner's sockets only.
-19. Order panel: USD mode with `1000` at last price `251.34` shows `3.978912 shares` on a fractionable symbol and `3 shares` on a non-fractionable one, and submits that quantity; switching order type reveals the right price fields; unchecked brackets send `null`; a SELL with no position shows `Sell short` and the margin requirement.
+19. Order panel: USD mode with `1000` at last price `251.34` shows `3.978674 shares` on a fractionable symbol and `3 shares` on a non-fractionable one, and submits that quantity; switching order type reveals the right price fields; unchecked brackets send `null`; a SELL with no position shows `Sell short` and the margin requirement.
 20. Order panel success dialog shows fill details; `INSUFFICIENT_BUYING_POWER` renders required versus available inline.
 21. Orders tab lists active orders across accounts, live-updates on fill, expands bracket children, and Modify plus Cancel work with version handling.
 22. Symbol page Orders, Position, and Trade history tabs show real data for the active account and update without reload.
@@ -439,6 +501,8 @@ ORDER_EXPIRY_CHECK_SECONDS=60
 ## Tests
 
 - Shared `order-math` unit tests first: share conversion (fractional and whole), position effect classification, reservations per type and effect, buying power with shorts, average cost in both directions, realized P&L for longs and shorts, crossing-zero split, bracket validation per side, with Decimal edge cases (repeating decimals, 6-decimal quantities, large quantities).
-- API integration for criteria 1 to 18 and 23 with the simulated provider replaced by a scripted tick source and a fake clock; each fill asserts the ledger invariant `cashBalance == latest balanceAfter` and the reservation invariant `sum(reservedCash of open buys) == recomputed`.
+- API integration for criteria 1 to 18 and 23 with a fake stream provider that emits scripted trades and an injected `now` (decision 9); each fill asserts the ledger invariant `cashBalance == latest balanceAfter` (`expectLedgerInvariant`) and the reservation invariant `sum(reservedCash of OPEN and TRIGGERED orders) == recomputed from order-math` (new `expectReservationInvariant`). Every conditional write has a two-writer `Promise.all` test (L-6): concurrent fill and cancel, concurrent modify and modify, concurrent placement with one `clientOrderId`.
+- Existing stub tests `accounts.positions.test.ts` and `market.trades.test.ts` are rewritten for real data.
 - Engine unit tests: per-symbol queue serialization, startup index rebuild, OCO handling, child quantity adjustment.
-- Web: `useOrderForm` state machine tests without React (unit conversion, field visibility, validation, preview debounce), orders store tests (apply updates, indexes), render tests for `OrderPanel`, `OrdersTable` with bracket fixtures, `ModifyOrderDialog` version conflict path.
+- Web: `order-form.ts` reducer tests without React (unit conversion, field visibility, validation, preview debounce), orders and positions store tests (apply updates, indexes, reset registration), a seam test that the panel's account equals the active account, render tests for `OrderPanel`, `OrdersTable` with bracket fixtures, `ModifyOrderDialog` version conflict path. Fixtures for mappers are copied from the API's serialized output (L-14).
+- e2e: `apps/e2e/tests/orders.spec.ts` per decision 7.
