@@ -1,6 +1,7 @@
 {
   "brand": "StockDesk",
   "nav.portfolio": "Portfólió",
+  "nav.orders": "Megbízások",
   "nav.reports": "Jelentések",
   "nav.deposit": "Befizetés",
   "sidebar.accounts": "Számlák",

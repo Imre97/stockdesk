@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { barsResponseSchema, symbolDetailSchema, type SymbolDetailDto } from "@stockdesk/shared";
+import { barsResponseSchema, ordersResponseSchema, symbolDetailSchema, type SymbolDetailDto } from "@stockdesk/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -51,15 +51,27 @@ const subscriptions = vi.hoisted(() => ({
   subscribeBars: vi.fn(() => () => undefined),
 }));
 
+const ordersApi = vi.hoisted(() => ({
+  previewOrder: vi.fn(),
+  placeOrder: vi.fn(),
+  listOrders: vi.fn(),
+  listAccountOrders: vi.fn(),
+  getOrder: vi.fn(),
+  modifyOrder: vi.fn(),
+  cancelOrder: vi.fn(),
+}));
+
 vi.mock("lightweight-charts", () => lightweightCharts);
 vi.mock("../api", () => api);
 vi.mock("../../accounts/api", () => accountsApi);
 vi.mock("../subscriptions", () => subscriptions);
+vi.mock("../../orders/api", () => ordersApi);
 
 import { i18n } from "../../../i18n";
-import { accountSummaryDto } from "../../../test/fixtures";
+import { accountSummaryDto, orderDto } from "../../../test/fixtures";
 import { useAccountsStore } from "../../accounts/store";
 import { useAuthStore } from "../../auth/store";
+import { useOrdersStore } from "../../orders/store";
 import { useMarketStore } from "../store";
 import { SymbolPage } from "./SymbolPage";
 
@@ -109,6 +121,23 @@ const DETAIL: SymbolDetailDto = {
   },
 };
 
+const SAVINGS = accountSummaryDto({
+  id: "account-2",
+  name: "Savings",
+  createdAt: "2026-09-02T10:00:00.000Z",
+});
+
+const MAIN_ORDER = orderDto({ id: "order-1", accountId: "account-1", symbol: "TSLA" });
+const SAVINGS_ORDER = orderDto({ id: "order-2", accountId: "account-2", symbol: "TSLA" });
+
+function ordersPage(orders: ReturnType<typeof orderDto>[]) {
+  return ordersResponseSchema.parse({ orders, nextCursor: null });
+}
+
+function orderRow(orderId: string): Element | null {
+  return document.querySelector(`[data-order-id="${orderId}"]`);
+}
+
 const EMPTY_BARS = barsResponseSchema.parse({
   symbol: "TSLA",
   timeframe: "1D",
@@ -143,6 +172,9 @@ beforeEach(() => {
   api.getMarketStatus.mockResolvedValue({ status: "open", nextOpenAt: null, nextCloseAt: null });
   api.getTrades.mockResolvedValue({ trades: [], nextCursor: null });
   accountsApi.getPositions.mockResolvedValue({ positions: [] });
+  useOrdersStore.getState().reset();
+  ordersApi.listAccountOrders.mockResolvedValue(ordersPage([]));
+  ordersApi.listOrders.mockResolvedValue(ordersPage([]));
 });
 
 describe("SymbolPage", () => {
@@ -206,6 +238,57 @@ describe("SymbolPage", () => {
     });
 
     expect(subscriptions.subscribeBars).toHaveBeenCalledWith("TSLA", "5m");
+  });
+
+  it("lists this symbol's orders for the active account in the orders tab", async () => {
+    ordersApi.listAccountOrders.mockResolvedValue(ordersPage([MAIN_ORDER]));
+
+    renderPage();
+
+    await screen.findByText("$251.34");
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: i18n.t("market:tabs.orders") }));
+
+    await waitFor(() => {
+      expect(ordersApi.listAccountOrders).toHaveBeenCalledWith("account-1", {
+        status: "all",
+        symbol: "TSLA",
+      });
+    });
+
+    await waitFor(() => {
+      expect(orderRow("order-1")).not.toBeNull();
+    });
+
+    const row = orderRow("order-1");
+
+    expect(row?.textContent).toContain(i18n.t("orders:status.OPEN"));
+    expect(row?.textContent).toContain("TSLA");
+  });
+
+  it("changes the order rows when the active account changes", async () => {
+    useAccountsStore.getState().setAccounts([ACCOUNT, SAVINGS]);
+    ordersApi.listAccountOrders.mockImplementation((accountId: string) =>
+      Promise.resolve(ordersPage(accountId === "account-1" ? [MAIN_ORDER] : [SAVINGS_ORDER])),
+    );
+
+    renderPage();
+
+    await screen.findByText("$251.34");
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: i18n.t("market:tabs.orders") }));
+
+    await waitFor(() => {
+      expect(orderRow("order-1")).not.toBeNull();
+    });
+
+    act(() => useAccountsStore.getState().setActiveAccount("account-2"));
+
+    await waitFor(() => {
+      expect(orderRow("order-2")).not.toBeNull();
+    });
+
+    expect(orderRow("order-1")).toBeNull();
   });
 
   it("names the browser tab after the symbol", async () => {

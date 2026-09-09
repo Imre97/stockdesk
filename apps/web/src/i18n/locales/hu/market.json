@@ -39,6 +39,7 @@
   "orderSlot.title": "Új megbízás",
   "tabs.position": "Pozíció",
   "tabs.trades": "Kötések",
+  "tabs.orders": "Megbízások",
   "position.columns.quantity": "Db",
   "position.columns.averageCost": "Átlagár",
   "position.columns.lastPrice": "Utolsó",

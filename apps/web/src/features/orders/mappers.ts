@@ -7,6 +7,7 @@ import {
   priceToApi,
   type DecimalValue,
   type ExpectedExecution,
+  type Order,
   type OrderPreview,
   type OrderSide,
   type PlaceOrderResponse,
@@ -182,13 +183,24 @@ function childViews(
   return children;
 }
 
+export function toBracketChildViews(children: Order[]): OrderChildView[] {
+  return children.flatMap((child) => {
+    const price = child.stopPrice ?? child.limitPrice;
+
+    return price === null ? [] : [{ roleKey: `${NAMESPACE}:role.${child.role}`, price: priceToApi(price) }];
+  });
+}
+
 export function toOrderSuccessView(
   response: PlaceOrderResponse,
   expectedExecution: ExpectedExecution | null,
   locale: string,
+  children: Order[] = [],
 ): OrderSuccessView {
   const { order, trade } = response;
   const filled = order.status === "FILLED" && order.avgFillPrice !== null;
+  const childViewsOrFallback =
+    children.length > 0 ? toBracketChildViews(children) : childViews(order.stopLossPrice, order.takeProfitPrice);
 
   return {
     statusKey: filled
@@ -199,6 +211,6 @@ export function toOrderSuccessView(
     quantity: formatQuantity(order.quantity, locale),
     costLabelKey: trade === undefined ? `${NAMESPACE}:success.reserved` : `${NAMESPACE}:success.cost`,
     cost: formatMoney(trade === undefined ? order.reservedCash : trade.amount, locale),
-    children: childViews(order.stopLossPrice, order.takeProfitPrice),
+    children: childViewsOrFallback,
   };
 }

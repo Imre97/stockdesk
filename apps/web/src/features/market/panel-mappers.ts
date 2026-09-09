@@ -63,7 +63,14 @@ export function toKeyStatRows(detail: SymbolDetail, locale: string): KeyStatRow[
   ];
 }
 
+/** The wire carries an unsigned gross amount, so the cash direction comes from the side. */
+function signedAmount(trade: Trade): DecimalValue {
+  return trade.side === "BUY" ? trade.amount.negated() : trade.amount;
+}
+
 export function toTradeRow(trade: Trade, locale: string): TradeRowView {
+  const amount = signedAmount(trade);
+
   return {
     id: trade.id,
     executedAt: formatTimestamp(trade.executedAt, locale),
@@ -71,8 +78,8 @@ export function toTradeRow(trade: Trade, locale: string): TradeRowView {
     sideKey: `trades.side.${trade.side}`,
     quantity: formatQuantity(trade.quantity, locale),
     price: formatPrice(trade.price, locale),
-    amount: formatChange(trade.amount, locale),
-    amountTone: pnlTone(trade.amount),
+    amount: formatChange(amount, locale),
+    amountTone: pnlTone(amount),
     realizedPnl: text(trade.realizedPnl, locale, formatChange),
     realizedTone: trade.realizedPnl === null ? "neutral" : pnlTone(trade.realizedPnl),
   };

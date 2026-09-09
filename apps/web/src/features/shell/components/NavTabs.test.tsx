@@ -30,18 +30,24 @@ function renderTabs() {
 }
 
 describe("NavTabs", () => {
-  it("links to the portfolio, reports and deposit routes", () => {
+  it("links to the portfolio, orders, reports and deposit routes", () => {
     renderTabs();
 
     expect(screen.getByRole("link", { name: i18n.t("shell:nav.portfolio") })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: i18n.t("shell:nav.orders") })).toHaveAttribute("href", "/orders");
     expect(screen.getByRole("link", { name: i18n.t("shell:nav.reports") })).toHaveAttribute("href", "/reports");
     expect(screen.getByRole("link", { name: i18n.t("shell:nav.deposit") })).toHaveAttribute("href", "/deposit");
   });
 
-  it("renders exactly three tabs", () => {
+  it("renders the four tabs in the order of the spec", () => {
     renderTabs();
 
-    expect(screen.getAllByRole("link")).toHaveLength(3);
+    expect(screen.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+      "/",
+      "/orders",
+      "/reports",
+      "/deposit",
+    ]);
   });
 
   it("hands every tab the active styling", () => {

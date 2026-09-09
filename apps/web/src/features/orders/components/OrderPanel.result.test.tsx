@@ -50,6 +50,7 @@ import {
 } from "../../../test/fixtures";
 import { MARKET_OPEN, resetOrderPanelStores } from "../../../test/order-panel";
 import { usePositionsStore } from "../../positions/store";
+import { useOrdersStore } from "../store";
 import { OrderPanel } from "./OrderPanel";
 
 let queryClient: QueryClient;
@@ -202,5 +203,70 @@ describe("OrderPanel result", () => {
     expect(alert).toHaveTextContent(
       i18n.t("orders:errors.buyingPowerDetails", { required: "$1,020.00", available: "$500.00" }),
     );
+  });
+
+  it("sends the view orders button to the orders tab", async () => {
+    renderPanel();
+    await waitForLastPrice();
+
+    typeQuantity("10");
+    fireEvent.click(submitButton("orders:submit.buy", "10"));
+
+    expect(await screen.findByRole("link", { name: label("orders:success.viewOrders") })).toHaveAttribute(
+      "href",
+      "/orders",
+    );
+  });
+});
+
+describe("OrderSuccessDialog bracket children", () => {
+  beforeEach(() => {
+    api.placeOrder.mockResolvedValue(
+      placeOrderResponseSchema.parse(
+        placeOrderResponseDto({
+          order: orderDto({ stopLossPrice: "240.0000", takeProfitPrice: "275.0000" }),
+        }),
+      ),
+    );
+  });
+
+  it("falls back to the entry bracket prices while no child order arrived", async () => {
+    renderPanel();
+    await waitForLastPrice();
+
+    typeQuantity("10");
+    fireEvent.click(submitButton("orders:submit.buy", "10"));
+
+    expect(await screen.findByText(label("orders:success.children"))).toBeInTheDocument();
+    expect(screen.getByText("240.0000")).toBeInTheDocument();
+    expect(screen.getByText("275.0000")).toBeInTheDocument();
+  });
+
+  it("lists the children of the entry from the store once the engine created them", async () => {
+    renderPanel();
+    await waitForLastPrice();
+
+    typeQuantity("10");
+    fireEvent.click(submitButton("orders:submit.buy", "10"));
+
+    await screen.findByText(label("orders:success.children"));
+
+    useOrdersStore.getState().applyOrderUpdate({
+      type: "order_update",
+      order: orderDto({
+        id: "order-2",
+        role: "STOP_LOSS",
+        type: "STOP",
+        side: "SELL",
+        limitPrice: null,
+        stopPrice: "238.5000",
+        parentOrderId: "order-1",
+        createdAt: "2026-09-08T14:31:00.000Z",
+      }),
+    });
+
+    expect(await screen.findByText("238.5000")).toBeInTheDocument();
+    expect(screen.queryByText("240.0000")).not.toBeInTheDocument();
+    expect(screen.queryByText("275.0000")).not.toBeInTheDocument();
   });
 });

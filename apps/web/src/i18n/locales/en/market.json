@@ -39,6 +39,7 @@
   "orderSlot.title": "New order",
   "tabs.position": "Position",
   "tabs.trades": "Trade history",
+  "tabs.orders": "Orders",
   "position.columns.quantity": "Qty",
   "position.columns.averageCost": "Avg cost",
   "position.columns.lastPrice": "Last",

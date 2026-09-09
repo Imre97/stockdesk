@@ -1,4 +1,4 @@
-import { Decimal, orderPreviewSchema, placeOrderResponseSchema } from "@stockdesk/shared";
+import { Decimal, orderPreviewSchema, orderSchema, placeOrderResponseSchema } from "@stockdesk/shared";
 import { describe, expect, it } from "vitest";
 
 import { HttpError } from "../../lib/http";
@@ -216,6 +216,41 @@ describe("toOrderSuccessView", () => {
     expect(toOrderSuccessView(response, "resting", LOCALE).children).toEqual([
       { roleKey: "orders:role.STOP_LOSS", price: "240.0000" },
       { roleKey: "orders:role.TAKE_PROFIT", price: "275.0000" },
+    ]);
+  });
+
+  it("prefers the child orders that arrived over the entry bracket prices", () => {
+    const response = placeOrderResponseSchema.parse(
+      placeOrderResponseDto({
+        order: orderDto({ stopLossPrice: "240.0000", takeProfitPrice: "275.0000" }),
+      }),
+    );
+    const children = [
+      orderSchema.parse(
+        orderDto({
+          id: "order-2",
+          role: "STOP_LOSS",
+          type: "STOP",
+          side: "SELL",
+          limitPrice: null,
+          stopPrice: "238.5000",
+          parentOrderId: "order-1",
+        }),
+      ),
+      orderSchema.parse(
+        orderDto({
+          id: "order-3",
+          role: "TAKE_PROFIT",
+          side: "SELL",
+          limitPrice: "277.0000",
+          parentOrderId: "order-1",
+        }),
+      ),
+    ];
+
+    expect(toOrderSuccessView(response, "resting", LOCALE, children).children).toEqual([
+      { roleKey: "orders:role.STOP_LOSS", price: "238.5000" },
+      { roleKey: "orders:role.TAKE_PROFIT", price: "277.0000" },
     ]);
   });
 });

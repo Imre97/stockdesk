@@ -7,6 +7,7 @@ const ACTIVE_TAB_CLASS = "border-foreground text-foreground";
 
 const TABS = [
   { to: "/", labelKey: "nav.portfolio" },
+  { to: "/orders", labelKey: "nav.orders" },
   { to: "/reports", labelKey: "nav.reports" },
   { to: "/deposit", labelKey: "nav.deposit" },
 ] as const;

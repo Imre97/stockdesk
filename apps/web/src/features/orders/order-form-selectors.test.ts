@@ -111,6 +111,12 @@ describe("opensShort", () => {
   it("is false for a BUY", () => {
     expect(opensShort(state({ quantityInput: "10" }), inputs())).toBe(false);
   });
+
+  it("is true for a SELL that flips a long into a short", () => {
+    const long = inputs({ positionQuantity: new Decimal(10) });
+
+    expect(opensShort(state({ side: "SELL", quantityInput: "15" }), long)).toBe(true);
+  });
 });
 
 describe("toPlaceOrderRequest", () => {
@@ -253,6 +259,22 @@ describe("validate", () => {
     expect(validate(sell, inputs())).toEqual({
       quantity: "orders:errors.FRACTIONAL_SHORT_NOT_ALLOWED",
     });
+  });
+
+  it("reports a fractional opening part when a whole-share sell flips a fractional long", () => {
+    const long = inputs({ positionQuantity: new Decimal("10.5") });
+    const sell = state({ side: "SELL", quantityInput: "15" });
+
+    expect(validate(sell, long)).toEqual({
+      quantity: "orders:errors.FRACTIONAL_SHORT_NOT_ALLOWED",
+    });
+  });
+
+  it("accepts a fractional sell whose short-opening part is whole", () => {
+    const long = inputs({ positionQuantity: new Decimal("10.5") });
+    const sell = state({ side: "SELL", quantityInput: "20.5" });
+
+    expect(validate(sell, long)).toEqual({});
   });
 
   it("reports a fractional quantity on a non-fractionable symbol", () => {

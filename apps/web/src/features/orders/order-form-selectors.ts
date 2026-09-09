@@ -32,7 +32,11 @@ const OPENING_EFFECTS: readonly PositionEffect[] = [
   "open_short",
   "increase_short",
 ];
-const SHORT_OPENING_EFFECTS: readonly PositionEffect[] = ["open_short", "increase_short"];
+const SHORT_OPENING_EFFECTS: readonly PositionEffect[] = [
+  "open_short",
+  "increase_short",
+  "flip_to_short",
+];
 const BRACKET_FIELDS: Record<BracketRole, string> = {
   stopLoss: "stopLossPrice",
   takeProfit: "takeProfitPrice",
@@ -94,6 +98,14 @@ export function bracketsAllowed(state: OrderFormState, inputs: OrderFormInputs):
 
 export function opensShort(state: OrderFormState, inputs: OrderFormInputs): boolean {
   return state.side === "SELL" && SHORT_OPENING_EFFECTS.includes(effectOf(state, inputs));
+}
+
+/** A sell that crosses zero opens the short only with the part beyond the long it closes. */
+export function shortOpeningQuantity(
+  quantity: DecimalValue,
+  positionQuantity: DecimalValue,
+): DecimalValue {
+  return positionQuantity.greaterThan(0) ? quantity.minus(positionQuantity) : quantity;
 }
 
 function bracketPriceFor(enabled: boolean, value: string): string | null {
@@ -195,7 +207,7 @@ function assignShortErrors(
     return;
   }
 
-  if (quantity !== null && quantity.decimalPlaces() > 0) {
+  if (quantity !== null && shortOpeningQuantity(quantity, inputs.positionQuantity).decimalPlaces() > 0) {
     errors["quantity"] ??= errorKey("FRACTIONAL_SHORT_NOT_ALLOWED");
   }
 }

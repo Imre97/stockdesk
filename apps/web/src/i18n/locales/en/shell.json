@@ -1,6 +1,7 @@
 {
   "brand": "StockDesk",
   "nav.portfolio": "Portfolio",
+  "nav.orders": "Orders",
   "nav.reports": "Reports",
   "nav.deposit": "Deposit",
   "sidebar.accounts": "Accounts",

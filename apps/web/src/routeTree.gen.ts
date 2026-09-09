@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedDepositRouteImport } from './routes/_authenticated/deposit'
+import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated/orders'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedSymbolsSymbolRouteImport } from './routes/_authenticated/symbols/$symbol'
@@ -42,6 +43,11 @@ const AuthenticatedDepositRoute = AuthenticatedDepositRouteImport.update({
   path: '/deposit',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedOrdersRoute = AuthenticatedOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/deposit': typeof AuthenticatedDepositRoute
+  '/orders': typeof AuthenticatedOrdersRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/symbols/$symbol': typeof AuthenticatedSymbolsSymbolRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/deposit': typeof AuthenticatedDepositRoute
+  '/orders': typeof AuthenticatedOrdersRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/': typeof AuthenticatedIndexRoute
@@ -83,6 +91,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/_authenticated/deposit': typeof AuthenticatedDepositRoute
+  '/_authenticated/orders': typeof AuthenticatedOrdersRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/deposit'
+    | '/orders'
     | '/reports'
     | '/settings'
     | '/symbols/$symbol'
@@ -103,6 +113,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/deposit'
+    | '/orders'
     | '/reports'
     | '/settings'
     | '/'
@@ -113,6 +124,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/_authenticated/deposit'
+    | '/_authenticated/orders'
     | '/_authenticated/reports'
     | '/_authenticated/settings'
     | '/_authenticated/'
@@ -162,6 +174,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDepositRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/orders': {
+      id: '/_authenticated/orders'
+      path: '/orders'
+      fullPath: '/orders'
+      preLoaderRoute: typeof AuthenticatedOrdersRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/reports': {
       id: '/_authenticated/reports'
       path: '/reports'
@@ -188,6 +207,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDepositRoute: typeof AuthenticatedDepositRoute
+  AuthenticatedOrdersRoute: typeof AuthenticatedOrdersRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -196,6 +216,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDepositRoute: AuthenticatedDepositRoute,
+  AuthenticatedOrdersRoute: AuthenticatedOrdersRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,

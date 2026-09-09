@@ -54,7 +54,7 @@ export function OrderSuccessDialog({ view, onClose }: OrderSuccessDialogProps) {
         )}
         <DialogFooter>
           <Button asChild variant="outline">
-            <Link to="/">{t("success.viewOrders")}</Link>
+            <Link to="/orders">{t("success.viewOrders")}</Link>
           </Button>
           <Button onClick={onClose}>{t("success.close")}</Button>
         </DialogFooter>

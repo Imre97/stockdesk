@@ -48,7 +48,7 @@ const EMPTY_STATS: SymbolDetailDto["stats"] = {
   dividendYield: null,
 };
 
-const TRADE: TradeDto = tradeDto({ amount: "-2500.00" });
+const TRADE: TradeDto = tradeDto();
 
 function rowValue(rows: ReturnType<typeof toKeyStatRows>, labelKey: string): string | null {
   const row = rows.find((entry) => entry.labelKey === labelKey);
@@ -124,12 +124,20 @@ describe("toTradeRow", () => {
     expect(row.quantity).toBe("10");
     expect(row.price).toBe("$250.00");
     expect(row.amount).toBe("-$2,500.00");
+    expect(row.amountTone).toBe("loss");
     expect(row.realizedPnl).toBeNull();
     expect(row.executedAt).toBe(
       new Intl.DateTimeFormat(LOCALE, { dateStyle: "short", timeStyle: "short" }).format(
         new Date("2026-09-08T14:31:00.000Z"),
       ),
     );
+  });
+
+  it("shows a sell amount as a positive cash movement", () => {
+    const row = toTradeRow(tradeSchema.parse({ ...TRADE, side: "SELL" }), LOCALE);
+
+    expect(row.amount).toBe("+$2,500.00");
+    expect(row.amountTone).toBe("gain");
   });
 
   it("tones a realized profit as a gain", () => {

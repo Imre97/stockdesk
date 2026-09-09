@@ -3,6 +3,7 @@ import type { ExpectedExecution, PlaceOrderResponse } from "@stockdesk/shared";
 
 import { useSettingsLocale } from "../settings/hooks";
 import { useOrderForm, usePlaceOrder, usePreviewOrder, type OrderFormView } from "./hooks";
+import { selectChildren } from "./list-hooks";
 import {
   insufficientBuyingPowerDetails,
   toOrderErrorKey,
@@ -16,6 +17,7 @@ import {
   type QuantityHint,
   type SubmitLabel,
 } from "./mappers";
+import { useOrdersStore } from "./store";
 
 const SIDE_FIELD = "side";
 
@@ -45,6 +47,13 @@ export function useOrderPanel(symbol: string, side: "BUY" | "SELL", onBack: () =
 
   const previewData = preview.data ?? null;
   const expectedExecution: ExpectedExecution | null = previewData?.expectedExecution ?? null;
+  const ordersById = useOrdersStore((state) => state.ordersById);
+  const placedOrderId = placed?.order.id ?? null;
+
+  const children = useMemo(
+    () => (placedOrderId === null ? [] : selectChildren(ordersById, placedOrderId)),
+    [ordersById, placedOrderId],
+  );
 
   const summary = useMemo(
     () => (previewData === null ? null : toOrderSummaryView(previewData, locale)),
@@ -87,7 +96,7 @@ export function useOrderPanel(symbol: string, side: "BUY" | "SELL", onBack: () =
     }),
     errorKey: mutationErrorKey ?? form.errors[SIDE_FIELD] ?? null,
     shortfall: insufficientBuyingPowerDetails(mutation.error, locale),
-    success: placed === null ? null : toOrderSuccessView(placed, expectedExecution, locale),
+    success: placed === null ? null : toOrderSuccessView(placed, expectedExecution, locale, children),
     pending: mutation.isPending,
     submit,
     closeSuccess,

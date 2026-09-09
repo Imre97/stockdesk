@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SymbolOrdersPanel } from "../../orders/components/SymbolOrdersPanel";
 import { useChartPrefs, useSymbolPage, useSymbolPageTitle } from "../page-hooks";
 import { ChartTypeToggle } from "./ChartTypeToggle";
 import { IntervalSelector } from "./IntervalSelector";
@@ -16,6 +17,7 @@ export interface SymbolPageProps {
 
 const POSITION_TAB = "position";
 const TRADES_TAB = "trades";
+const ORDERS_TAB = "orders";
 
 export function SymbolPage({ symbol }: SymbolPageProps) {
   const { t } = useTranslation("market");
@@ -37,12 +39,16 @@ export function SymbolPage({ symbol }: SymbolPageProps) {
           <TabsList>
             <TabsTrigger value={POSITION_TAB}>{t("tabs.position")}</TabsTrigger>
             <TabsTrigger value={TRADES_TAB}>{t("tabs.trades")}</TabsTrigger>
+            <TabsTrigger value={ORDERS_TAB}>{t("tabs.orders")}</TabsTrigger>
           </TabsList>
           <TabsContent value={POSITION_TAB}>
             <SymbolPositionPanel symbol={symbol} />
           </TabsContent>
           <TabsContent value={TRADES_TAB}>
             <SymbolTradesPanel symbol={symbol} />
+          </TabsContent>
+          <TabsContent value={ORDERS_TAB}>
+            <SymbolOrdersPanel symbol={symbol} />
           </TabsContent>
         </Tabs>
       </div>
