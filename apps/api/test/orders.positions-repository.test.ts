@@ -143,4 +143,31 @@ describe("positions repository", () => {
     expect((await sumReservedCashByAccounts([main])).get(main)?.toString()).toBe("1000");
     await expectReservationInvariant(main);
   });
+
+  it("recomputes a second closing sell against the position netted by the first", async () => {
+    const { main } = await twoAccounts();
+
+    await seedPosition(main, { symbol: "TSLA", quantity: "10", averageCost: "150" });
+    await seedOrder(main, {
+      symbol: "TSLA",
+      side: "SELL",
+      type: "LIMIT",
+      status: "OPEN",
+      quantity: "10",
+      limitPrice: "210",
+      reservedCash: "0",
+      createdAt: new Date("2026-09-09T18:00:00.000Z"),
+    });
+    await seedOrder(main, {
+      symbol: "TSLA",
+      side: "SELL",
+      type: "MARKET",
+      status: "OPEN",
+      quantity: "10",
+      reservedCash: "1020.00",
+      createdAt: new Date("2026-09-09T18:00:01.000Z"),
+    });
+
+    await expectReservationInvariant(main, new Map([["TSLA", "200.0000"]]));
+  });
 });

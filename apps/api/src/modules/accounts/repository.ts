@@ -105,6 +105,33 @@ export async function renameAccount(
   return account === null ? { status: "notFound" } : { status: "renamed", account };
 }
 
+export type CashClient = Pick<Prisma.TransactionClient, "$queryRaw">;
+
+export interface CashIncrement {
+  accountId: string;
+  userId: string;
+  amountText: string;
+}
+
+/**
+ * The single atomic cash movement of the whole application (L-18): deposits, fills and transfers all
+ * increment through this statement inside their own transaction and take `balanceAfter` from the
+ * returned row, so no reader ever sees a balance the ledger does not explain.
+ */
+export async function incrementCashBalance(
+  client: CashClient,
+  increment: CashIncrement,
+): Promise<AccountRecord | null> {
+  const updated = await client.$queryRaw<AccountRecord[]>`
+    UPDATE "Account"
+    SET "cashBalance" = "cashBalance" + ${increment.amountText}::numeric, "updatedAt" = now()
+    WHERE "id" = ${increment.accountId} AND "userId" = ${increment.userId}
+    RETURNING "id", "userId", "name", "cashBalance", "createdAt"
+  `;
+
+  return updated[0] ?? null;
+}
+
 /**
  * The ledger timestamp is taken after the conditional update returns, not from the transaction start,
  * so concurrent deposits keep the (createdAt desc, id desc) order that Account.cashBalance follows.
@@ -118,15 +145,9 @@ export async function applyDeposit(
   const amountText = toApiString(amount, MONEY_PLACES);
 
   return await prisma.$transaction(async (tx): Promise<DepositResult> => {
-    const updated = await tx.$queryRaw<AccountRecord[]>`
-      UPDATE "Account"
-      SET "cashBalance" = "cashBalance" + ${amountText}::numeric, "updatedAt" = now()
-      WHERE "id" = ${accountId} AND "userId" = ${userId}
-      RETURNING "id", "userId", "name", "cashBalance", "createdAt"
-    `;
+    const account = await incrementCashBalance(tx, { accountId, userId, amountText });
 
-    const [account] = updated;
-    if (account === undefined) return { status: "notFound" };
+    if (account === null) return { status: "notFound" };
 
     const transaction = await tx.cashTransaction.create({
       data: {

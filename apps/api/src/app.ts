@@ -15,6 +15,7 @@ import { createAuthRouter } from "./modules/auth/router.js";
 import { createHealthRouter, type DatabaseCheck } from "./modules/health/router.js";
 import { createMarketRouter } from "./modules/market/router.js";
 import { createMarketRuntime, type MarketRuntime } from "./modules/market/runtime.js";
+import { createOrderEngine, type OrderEngine } from "./modules/orders/engine.js";
 import { createOrdersRouter } from "./modules/orders/router.js";
 import { createSettingsRouter } from "./modules/settings/router.js";
 import type { Readiness } from "./readiness.js";
@@ -37,6 +38,7 @@ export interface CreateAppOptions {
   checkDatabase?: DatabaseCheck;
   deps?: AccountsDependencies;
   market?: MarketRuntime;
+  engine?: OrderEngine;
   readiness?: Readiness;
 }
 
@@ -72,6 +74,14 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
     prices: options.deps?.prices ?? market.priceService,
     rates: options.deps?.rates ?? marginRatesOf(config),
   };
+  const engine =
+    options.engine ??
+    createOrderEngine({
+      config,
+      prices: market.priceService,
+      accounts: dependencies,
+      log: reportToStderr,
+    });
   const app = express();
 
   app.disable("x-powered-by");
@@ -87,7 +97,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   apiRouter.use("/health", createHealthRouter(options.checkDatabase, options.readiness));
   apiRouter.use("/auth", createAuthRouter(config, authRateLimiter, dependencies));
   apiRouter.use("/accounts", createAccountsRouter(config, dependencies));
-  apiRouter.use("/accounts/:id/orders", createOrdersRouter(config, market, dependencies));
+  apiRouter.use("/accounts/:id/orders", createOrdersRouter(config, market, dependencies, engine));
   apiRouter.use("/market", createMarketRouter(config, market));
   apiRouter.use("/settings", createSettingsRouter(config));
   app.use("/api/v1", apiRouter);

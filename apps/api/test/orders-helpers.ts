@@ -5,6 +5,7 @@ import {
   reservationFor,
   splitCrossingFill,
   type DecimalInput,
+  type OrderSide,
   type ServerMessage,
 } from "@stockdesk/shared";
 import type { Express } from "express";
@@ -13,6 +14,9 @@ import { expect } from "vitest";
 import { createApp } from "../src/app.js";
 import { loadConfig, type AppConfig } from "../src/lib/config.js";
 import { prisma } from "../src/lib/prisma.js";
+import type { AccountsDependencies } from "../src/modules/accounts/snapshot-writer.js";
+import { marginRatesOf } from "../src/modules/accounts/summary.js";
+import { createOrderEngine, type OrderEngine } from "../src/modules/orders/engine.js";
 import {
   createSimulatedProvider,
   type SimulatedProvider,
@@ -38,10 +42,13 @@ export interface OrdersTestContext {
   app: Express;
   config: AppConfig;
   runtime: MarketRuntime;
+  engine: OrderEngine;
+  accounts: AccountsDependencies;
   provider: FakeProvider;
   simulated: SimulatedProvider;
   broadcasts: BroadcastRecord[];
   logs: string[];
+  now: () => Date;
   setNow: (at: Date) => void;
   ensureStreaming: (symbols: string[]) => Promise<void>;
   close: () => Promise<void>;
@@ -73,26 +80,43 @@ export async function createOrdersTestContext(
     aggregatorTimers: IDLE_AGGREGATOR_TIMERS,
   });
 
+  const accounts: AccountsDependencies = {
+    now,
+    prices: runtime.priceService,
+    rates: marginRatesOf(config),
+    broadcast: (userId, message) => {
+      broadcasts.push({ userId, message });
+    },
+  };
+
+  const engine = createOrderEngine({
+    config,
+    prices: runtime.priceService,
+    accounts,
+    log: (message) => logs.push(message),
+  });
+
   const app = createApp({
     config,
     rateLimit: { enabled: false },
     market: runtime,
-    deps: {
-      now,
-      broadcast: (userId, message) => {
-        broadcasts.push({ userId, message });
-      },
-    },
+    engine,
+    deps: accounts,
   });
+
+  await engine.start();
 
   return {
     app,
     config,
     runtime,
+    engine,
+    accounts,
     provider,
     simulated,
     broadcasts,
     logs,
+    now,
 
     setNow: (at: Date) => {
       instant = at;
@@ -103,6 +127,7 @@ export async function createOrdersTestContext(
     },
 
     close: async () => {
+      await engine.stop();
       await runtime.stop();
     },
   };
@@ -150,6 +175,9 @@ export interface OrderSeed {
   role?: "ENTRY" | "STOP_LOSS" | "TAKE_PROFIT";
   timeInForce?: "GTC" | "DAY";
   commission?: string;
+  parentOrderId?: string;
+  ocoGroupId?: string;
+  createdAt?: Date;
 }
 
 export async function seedOrder(accountId: string, seed: OrderSeed): Promise<{ id: string }> {
@@ -167,15 +195,27 @@ export async function seedOrder(accountId: string, seed: OrderSeed): Promise<{ i
       commission: seed.commission ?? "0",
       limitPrice: seed.limitPrice ?? null,
       stopPrice: seed.stopPrice ?? null,
+      parentOrderId: seed.parentOrderId ?? null,
+      ocoGroupId: seed.ocoGroupId ?? null,
+      ...(seed.createdAt === undefined ? {} : { createdAt: seed.createdAt }),
     },
   });
 
   return { id: row.id };
 }
 
+function nettedAfter(current: Decimal, side: OrderSide, closingQty: Decimal): Decimal {
+  if (closingQty.isZero()) return current;
+
+  return side === "SELL" ? current.minus(closingQty) : current.plus(closingQty);
+}
+
 /**
- * The reference price of a resting MARKET order is not stored on the row, so the caller passes the
- * last price its scenario placed the order at; every other type reserves from its own prices.
+ * Reservations are frozen at placement, so each resting order is recomputed from its own stored
+ * fields against the position netted by the closing orders created before it (decision 2): a second
+ * closing sell that became a short-opening order recomputes to its stored margin reservation. The
+ * reference price of a resting MARKET order is not stored on the row, so the caller passes the last
+ * price its scenario placed the order at; every other type reserves from its own prices.
  */
 export async function expectReservationInvariant(
   accountId: string,
@@ -189,7 +229,7 @@ export async function expectReservationInvariant(
   });
 
   const positions = await prisma.position.findMany({ where: { accountId, closedAt: null } });
-  const held = new Map(
+  const netted = new Map(
     positions.map((position) => [position.symbol, new Decimal(position.quantity.toString())]),
   );
 
@@ -200,7 +240,7 @@ export async function expectReservationInvariant(
     stored = stored.plus(order.reservedCash.toString());
 
     const quantity = new Decimal(order.quantity.toString());
-    const current = held.get(order.symbol) ?? new Decimal(0);
+    const current = netted.get(order.symbol) ?? new Decimal(0);
     const reference = referencePrice(
       order.type,
       order.limitPrice?.toString() ?? null,
@@ -213,18 +253,22 @@ export async function expectReservationInvariant(
       throw new Error(`No reference price is known for the resting ${order.type} order ${order.id}.`);
     }
 
+    const split = splitCrossingFill(current, order.side, quantity);
+
     recomputed = recomputed.plus(
       reservationFor({
         side: order.side,
         effect: positionEffect(current, order.side, quantity),
         quantity,
-        openingQuantity: splitCrossingFill(current, order.side, quantity).openingQty,
+        openingQuantity: split.openingQty,
         referencePrice: reference,
         shortMarginRate: config.shortMarginRate,
         commission: new Decimal(order.commission.toString()),
         role: order.role,
       }),
     );
+
+    netted.set(order.symbol, nettedAfter(current, order.side, split.closingQty));
   }
 
   expect(stored.toString()).toBe(recomputed.toString());

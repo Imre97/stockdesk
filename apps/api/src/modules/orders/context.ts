@@ -13,7 +13,7 @@ import type { AccountsDependencies } from "../accounts/snapshot-writer.js";
 import { valuePositions } from "../accounts/summary.js";
 import { findActiveSymbol, type SymbolWithProfile } from "../market/symbols-repository.js";
 import { listOpenPositions, sumReservedCashByAccounts } from "./positions-repository.js";
-import { listOpenOrdersForSymbol } from "./repository.js";
+import { listOpenOrdersForSymbol, type OrderRow } from "./repository.js";
 import { validatePlacement, type OrderValidationResult } from "./validation.js";
 
 const MONEY_PLACES = 2;
@@ -25,10 +25,17 @@ export interface OrdersPriceService {
   ensureStreaming: (symbols: string[]) => Promise<void>;
 }
 
+export interface OrdersEnginePort {
+  indexAdd: (order: OrderRow) => void;
+  indexRemove: (orderId: string) => void;
+  evaluateOrder: (orderId: string) => Promise<void>;
+}
+
 export interface OrdersDependencies {
   config: AppConfig;
   prices: OrdersPriceService;
   accounts: AccountsDependencies;
+  engine: OrdersEnginePort;
 }
 
 export interface OrderContext {

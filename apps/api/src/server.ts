@@ -4,6 +4,8 @@ import { WebSocket } from "ws";
 import { createApp } from "./app.js";
 import { runBootTasks } from "./boot.js";
 import { getConfig } from "./lib/config.js";
+import type { AccountsDependencies } from "./modules/accounts/snapshot-writer.js";
+import { marginRatesOf } from "./modules/accounts/summary.js";
 import { createMarketJobs } from "./modules/market/jobs.js";
 import { createAlpacaProvider } from "./modules/market/providers/alpaca/provider.js";
 import { createProvidersFromConfig } from "./modules/market/providers/factory.js";
@@ -12,6 +14,7 @@ import type { ProviderSocketFactory } from "./modules/market/providers/reconnect
 import { systemTimers } from "./modules/market/providers/reconnecting-socket.js";
 import { createSimulatedProvider } from "./modules/market/providers/simulated/provider.js";
 import { createMarketRuntime } from "./modules/market/runtime.js";
+import { createOrderEngine } from "./modules/orders/engine.js";
 import { createReadiness } from "./readiness.js";
 import { createMarketGateway } from "./ws/market-gateway.js";
 import { createUserRegistry } from "./ws/user-registry.js";
@@ -56,7 +59,15 @@ const providers = createProvidersFromConfig(config, {
 
 const market = createMarketRuntime({ config, providers, log });
 
-const server = createServer(createApp({ config, deps: { broadcast }, market, readiness }));
+const accounts: AccountsDependencies = {
+  broadcast,
+  prices: market.priceService,
+  rates: marginRatesOf(config),
+};
+
+const engine = createOrderEngine({ config, prices: market.priceService, accounts, log });
+
+const server = createServer(createApp({ config, deps: accounts, market, engine, readiness }));
 
 createMarketGateway({ server, config, registry, runtime: market, log });
 

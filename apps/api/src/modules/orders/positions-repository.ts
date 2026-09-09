@@ -14,7 +14,7 @@ export interface PositionRow {
   updatedAt: Date;
 }
 
-interface PositionRecord {
+export interface PositionRecord {
   id: string;
   accountId: string;
   symbol: string;
@@ -22,6 +22,7 @@ interface PositionRecord {
   averageCost: { toString: () => string };
   realizedPnl: { toString: () => string };
   openedAt: Date;
+  closedAt: Date | null;
   updatedAt: Date;
 }
 
@@ -66,6 +67,26 @@ export async function listOpenPositionsByAccounts(
   }
 
   return grouped;
+}
+
+export async function findPosition(
+  accountId: string,
+  symbol: string,
+): Promise<PositionRecord | null> {
+  return await prisma.position.findUnique({
+    where: { accountId_symbol: { accountId, symbol } },
+  });
+}
+
+export async function listOpenPositionSymbols(): Promise<string[]> {
+  const rows = await prisma.position.findMany({
+    where: { closedAt: null, quantity: { not: 0 } },
+    distinct: ["symbol"],
+    select: { symbol: true },
+    orderBy: { symbol: "asc" },
+  });
+
+  return rows.map((row) => row.symbol);
 }
 
 export async function sumReservedCashByAccounts(

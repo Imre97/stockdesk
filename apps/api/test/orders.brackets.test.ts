@@ -13,6 +13,7 @@ import {
 } from "./orders-helpers.js";
 
 const WEDNESDAY_15_00_NY = new Date("2026-09-09T19:00:00.000Z");
+const WEDNESDAY_20_00_NY = new Date("2026-09-10T00:00:00.000Z");
 const SYMBOL = "TSLA";
 const NOT_SHORTABLE = "MU";
 const LAST = "200.0000";
@@ -161,6 +162,7 @@ describe("order bracket and available quantity validation", () => {
   });
 
   it("reserves the short margin for a second closing sell on a shortable symbol", async () => {
+    context.setNow(WEDNESDAY_20_00_NY);
     await seedPosition(accountId, { symbol: SYMBOL, quantity: "10", averageCost: "150" });
     await seedOrder(accountId, {
       symbol: SYMBOL,

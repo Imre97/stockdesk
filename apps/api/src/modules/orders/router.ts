@@ -6,6 +6,7 @@ import { requireAuth } from "../../middleware/require-auth.js";
 import type { AccountsDependencies } from "../accounts/snapshot-writer.js";
 import type { MarketRuntime } from "../market/runtime.js";
 import type { OrdersDependencies } from "./context.js";
+import type { OrderEngine } from "./engine.js";
 import { placeOrder } from "./placement.js";
 import { previewOrder } from "./preview.js";
 
@@ -32,9 +33,15 @@ export function createOrdersRouter(
   config: AppConfig,
   market: MarketRuntime,
   accounts: AccountsDependencies,
+  engine: OrderEngine,
 ): Router {
   const router = Router({ mergeParams: true });
-  const dependencies: OrdersDependencies = { config, prices: market.priceService, accounts };
+  const dependencies: OrdersDependencies = {
+    config,
+    prices: market.priceService,
+    accounts,
+    engine,
+  };
 
   router.use(requireAuth(config));
 
@@ -49,9 +56,9 @@ export function createOrdersRouter(
     const input = placeOrderSchema.parse(request.body);
     const result = await placeOrder(callerId(request), accountId(request), input, dependencies);
 
-    response
-      .status(result.created ? CREATED : OK)
-      .json({ order: result.order, account: result.account });
+    const { created, ...payload } = result;
+
+    response.status(created ? CREATED : OK).json(payload);
   });
 
   return router;

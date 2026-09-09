@@ -18,6 +18,7 @@ import {
 } from "./orders-helpers.js";
 
 const WEDNESDAY_15_00_NY = new Date("2026-09-09T19:00:00.000Z");
+const WEDNESDAY_20_00_NY = new Date("2026-09-10T00:00:00.000Z");
 const SYMBOL = "TSLA";
 const NOT_SHORTABLE = "MU";
 const NOT_FRACTIONABLE = "AVGO";
@@ -87,7 +88,9 @@ describe("short, fractional and margin placement rules", () => {
     expect(await prisma.order.count({ where: { accountId } })).toBe(0);
   });
 
-  it("rests a short sale with the buffered short margin reservation", async () => {
+  it("rests a short sale placed after the close with its buffered margin reservation", async () => {
+    context.setNow(WEDNESDAY_20_00_NY);
+
     const response = await place({
       symbol: SYMBOL,
       side: "SELL",
@@ -128,7 +131,9 @@ describe("short, fractional and margin placement rules", () => {
     expect(codeOf(response.body)).toBe("VALIDATION_ERROR");
   });
 
-  it("rests a fractional buy on a fractionable symbol", async () => {
+  it("rests a fractional buy placed after the close on a fractionable symbol", async () => {
+    context.setNow(WEDNESDAY_20_00_NY);
+
     const response = await place({
       symbol: SYMBOL,
       side: "BUY",
@@ -171,7 +176,7 @@ describe("short, fractional and margin placement rules", () => {
     });
 
     expect(covering.status).toBe(201);
-    expect(orderOf(covering.body).status).toBe("OPEN");
+    expect(orderOf(covering.body).status).toBe("FILLED");
     expect(await prisma.order.count({ where: { accountId: savings.id } })).toBe(1);
   });
 });

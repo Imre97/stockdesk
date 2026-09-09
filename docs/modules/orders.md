@@ -86,7 +86,7 @@ Reference price: `limitPrice` for `LIMIT` and `STOP_LIMIT`, `stopPrice` for `STO
 ### Brackets
 
 - An entry order may carry `stopLossPrice` and/or `takeProfitPrice`.
-- When the entry fills, the engine creates children in the same transaction, on the opposite side of the entry: `STOP_LOSS` role as a `STOP` at `stopLossPrice`, `TAKE_PROFIT` role as a `LIMIT` at `takeProfitPrice`, both for the filled quantity, `GTC`, sharing one `ocoGroupId` and referencing `parentOrderId`. For a long entry the children are SELLs; for a short entry they are BUYs.
+- When the entry fills, the engine creates children in the same transaction, on the opposite side of the entry: `STOP_LOSS` role as a `STOP` at `stopLossPrice`, `TAKE_PROFIT` role as a `LIMIT` at `takeProfitPrice`, both for the filled quantity, `GTC`, sharing one `ocoGroupId` (an opaque UUID) and referencing `parentOrderId`. For a long entry the children are SELLs; for a short entry they are BUYs.
 - When one child fills, the sibling is cancelled with reason `OCO_SIBLING_FILLED`.
 - Children are closing orders and never reserve cash or margin. They are never allowed to flip the position: their quantity is capped at the absolute position quantity.
 - If the absolute position quantity drops below a child's quantity through another order, the child's quantity is reduced to the remaining absolute position; at zero the child is cancelled with reason `POSITION_CLOSED`.

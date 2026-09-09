@@ -9,8 +9,16 @@ import type {
 } from "@stockdesk/shared";
 import { prisma } from "../../lib/prisma.js";
 
-const RESTING_STATUSES: readonly OrderStatus[] = ["OPEN", "TRIGGERED"];
+export const RESTING_STATUSES: readonly OrderStatus[] = ["OPEN", "TRIGGERED"];
 const CLIENT_ORDER_ID_COLUMN = "clientOrderId";
+const ORDER_SEQUENCE: Prisma.OrderOrderByWithRelationInput[] = [
+  { createdAt: "asc" },
+  { id: "asc" },
+];
+
+export function isRestingStatus(status: OrderStatus): boolean {
+  return RESTING_STATUSES.includes(status);
+}
 
 export interface DecimalLike {
   toString: () => string;
@@ -99,7 +107,61 @@ export async function listOpenOrdersForSymbol(
 ): Promise<OrderRow[]> {
   return await prisma.order.findMany({
     where: { accountId, symbol, status: { in: [...RESTING_STATUSES] } },
-    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    orderBy: ORDER_SEQUENCE,
+  });
+}
+
+export async function findOrderById(
+  client: OrderClient,
+  orderId: string,
+): Promise<OrderRow | null> {
+  return await client.order.findUnique({ where: { id: orderId } });
+}
+
+export async function listRestingOrders(): Promise<OrderRow[]> {
+  return await prisma.order.findMany({
+    where: { status: { in: [...RESTING_STATUSES] } },
+    orderBy: ORDER_SEQUENCE,
+  });
+}
+
+export async function listRestingOrdersByIds(orderIds: string[]): Promise<OrderRow[]> {
+  if (orderIds.length === 0) return [];
+
+  return await prisma.order.findMany({
+    where: { id: { in: orderIds }, status: { in: [...RESTING_STATUSES] } },
+    orderBy: ORDER_SEQUENCE,
+  });
+}
+
+export async function listRestingChildren(
+  client: OrderClient,
+  accountId: string,
+  symbol: string,
+): Promise<OrderRow[]> {
+  return await client.order.findMany({
+    where: {
+      accountId,
+      symbol,
+      parentOrderId: { not: null },
+      status: { in: [...RESTING_STATUSES] },
+    },
+    orderBy: ORDER_SEQUENCE,
+  });
+}
+
+export async function listOcoSiblings(
+  client: OrderClient,
+  ocoGroupId: string,
+  excludeOrderId: string,
+): Promise<OrderRow[]> {
+  return await client.order.findMany({
+    where: {
+      ocoGroupId,
+      id: { not: excludeOrderId },
+      status: { in: [...RESTING_STATUSES] },
+    },
+    orderBy: ORDER_SEQUENCE,
   });
 }
 
