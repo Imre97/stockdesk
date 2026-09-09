@@ -3,14 +3,13 @@ import { marketStatusAt } from "./calendar.js";
 import * as candlesRepository from "./candles-repository.js";
 import type { CandleRow } from "./candles-repository.js";
 import type { CandleCache } from "./candles.js";
+import { cachedClose, cachedCloses, dayStart, prevCloseFor, toDecimal } from "./last-close.js";
 import type { CompositeProvider } from "./providers/composite.js";
 import type { Quote, Trade, TradeHandler } from "./providers/types.js";
 import { findActiveSymbol } from "./symbols-repository.js";
-import { bucketStartMs } from "./timeframes.js";
 
 const SIMULATED = "simulated";
 const DAILY: Timeframe = "1D";
-const MINUTE: Timeframe = "1m";
 const WARM_BARS = 5;
 const STATUS_CHECK_INTERVAL_MS = 60_000;
 const PERCENT = 100;
@@ -55,6 +54,7 @@ export interface PriceService {
   onTrade: (handler: TradeHandler) => () => void;
   lastTrade: (symbol: string) => Trade | undefined;
   getLastPrice: (symbol: string) => Promise<Decimal | null>;
+  getLastPrices: (symbols: string[]) => Promise<Map<string, Decimal | null>>;
   getPrevClose: (symbol: string, at?: Date) => Promise<Decimal | null>;
   getQuoteSnapshot: (symbol: string) => Promise<QuoteSnapshot | null>;
   getMarketStatus: () => MarketStatus;
@@ -65,16 +65,8 @@ export interface PriceService {
   stop: () => void;
 }
 
-function toDecimal(value: { toString: () => string }): Decimal {
-  return new Decimal(value.toString());
-}
-
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function dayStart(at: Date): Date {
-  return new Date(bucketStartMs(at.getTime(), DAILY));
 }
 
 function sameStatus(left: MarketStatus, right: MarketStatus): boolean {
@@ -128,21 +120,6 @@ export function createPriceService(options: PriceServiceOptions): PriceService {
     const record = await findActiveSymbol(symbol);
 
     return record === null ? null : record.id;
-  }
-
-  async function cachedClose(id: string): Promise<Decimal | null> {
-    const minute = await candlesRepository.latestBar(id, MINUTE);
-    if (minute !== null) return toDecimal(minute.close);
-
-    const daily = await candlesRepository.latestBar(id, DAILY);
-
-    return daily === null ? null : toDecimal(daily.close);
-  }
-
-  async function prevCloseFor(id: string, at: Date): Promise<Decimal | null> {
-    const row = await candlesRepository.latestFinalBarBefore(id, DAILY, dayStart(at));
-
-    return row === null ? null : toDecimal(row.close);
   }
 
   async function simulatedQuote(symbol: string): Promise<Quote | null> {
@@ -229,6 +206,29 @@ export function createPriceService(options: PriceServiceOptions): PriceService {
       const id = await symbolId(symbol);
 
       return id === null ? null : await cachedClose(id);
+    },
+
+    /**
+     * One batch replaces the per-symbol lookup: streamed trades answer from memory and every
+     * remaining symbol is priced by one cached-close query, in the same fallback order.
+     */
+    async getLastPrices(symbols: string[]): Promise<Map<string, Decimal | null>> {
+      const prices = new Map<string, Decimal | null>(symbols.map((symbol) => [symbol, null]));
+      const missing: string[] = [];
+
+      for (const symbol of prices.keys()) {
+        const trade = lastTrades.get(symbol);
+        if (trade === undefined) {
+          missing.push(symbol);
+          continue;
+        }
+        prices.set(symbol, trade.price);
+      }
+
+      const closes = await cachedCloses(missing);
+      for (const symbol of missing) prices.set(symbol, closes.get(symbol) ?? null);
+
+      return prices;
     },
 
     async getPrevClose(symbol: string, at?: Date): Promise<Decimal | null> {

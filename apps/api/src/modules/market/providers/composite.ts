@@ -40,6 +40,7 @@ export type CompositeProvider = MarketDataProvider & {
   activeProviderNames(): string[];
   streamProviderName(): string | null;
   barsHistoryDepth(symbol: string | null): HistoryDepth;
+  barsServedDepth(symbol: string): HistoryDepth | null;
 };
 
 type Attempt<T> = { ok: true; value: T } | { ok: false };
@@ -52,6 +53,7 @@ type Attempt<T> = { ok: true; value: T } | { ok: false };
 export function createCompositeProvider({ providers, log }: CompositeProviderOptions): CompositeProvider {
   const handlers = new Set<TradeHandler>();
   const claimedByReal = new Map<string, string>();
+  const barsServedBy = new Map<string, MarketDataProvider>();
   const capabilities = new Set<Capability>();
 
   for (const provider of providers) {
@@ -121,10 +123,20 @@ export function createCompositeProvider({ providers, log }: CompositeProviderOpt
     return capableProviders("bars", symbol)[0]?.historyDepth ?? NO_HISTORY;
   }
 
+  /**
+   * What the last `getBars` of this symbol could actually reach. The routed window still follows
+   * the deepest capable provider, so a recovered provider is asked again, but a page served by a
+   * shallower fallback may only mark its own reach as covered.
+   */
+  function barsServedDepth(symbol: string): HistoryDepth | null {
+    return barsServedBy.get(symbol)?.historyDepth ?? null;
+  }
+
   return {
     name: "composite",
     capabilities,
     barsHistoryDepth,
+    barsServedDepth,
 
     get historyDepth(): HistoryDepth {
       return barsHistoryDepth(null);
@@ -172,6 +184,7 @@ export function createCompositeProvider({ providers, log }: CompositeProviderOpt
 
     async getBars(query: BarsQuery): Promise<Bar[]> {
       const result = await route<Bar[]>("bars", query.symbol, (provider) => provider.getBars(query));
+      barsServedBy.set(query.symbol, result.provider);
       if (result.value.length > 0) claim(result.provider, [query.symbol]);
       return result.value;
     },

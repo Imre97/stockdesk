@@ -22,7 +22,7 @@ export interface PositionInput {
 }
 
 export interface PriceLookup {
-  getLastPrice: (symbol: string) => Promise<Decimal | null>;
+  getLastPrices: (symbols: string[]) => Promise<Map<string, Decimal | null>>;
   getPrevClose: (symbol: string, at?: Date) => Promise<Decimal | null>;
 }
 
@@ -53,9 +53,13 @@ export async function valuePositions(
   let positionsValue = new Decimal("0");
   let unrealizedPnl = new Decimal("0");
 
+  const last =
+    prices === undefined || positions.length === 0
+      ? new Map<string, Decimal | null>()
+      : await prices.getLastPrices(positions.map((position) => position.symbol));
+
   for (const position of positions) {
-    const last = prices === undefined ? null : await prices.getLastPrice(position.symbol);
-    const price = last ?? position.averageCost;
+    const price = last.get(position.symbol) ?? position.averageCost;
 
     positionsValue = positionsValue.plus(position.quantity.times(price));
     unrealizedPnl = unrealizedPnl.plus(position.quantity.times(price.minus(position.averageCost)));

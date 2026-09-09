@@ -198,6 +198,17 @@ export async function findActiveSymbols(symbols: string[]): Promise<string[]> {
   return rows.map((row) => row.symbol);
 }
 
+export async function findActiveSymbolIds(symbols: string[]): Promise<Map<string, string>> {
+  if (symbols.length === 0) return new Map();
+
+  const rows = await prisma.symbol.findMany({
+    where: { symbol: { in: symbols }, isActive: true },
+    select: { id: true, symbol: true },
+  });
+
+  return new Map(rows.map((row) => [row.symbol, row.id]));
+}
+
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (match) => `\\${match}`);
 }

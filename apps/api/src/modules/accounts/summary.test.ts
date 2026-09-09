@@ -1,6 +1,11 @@
 import { Decimal } from "@stockdesk/shared";
 import { describe, expect, it } from "vitest";
-import { accountEquity, toAccountSummary, valuePositions } from "./summary.js";
+import {
+  accountEquity,
+  toAccountSummary,
+  valuePositions,
+  type PriceLookup,
+} from "./summary.js";
 
 const account = {
   id: "acc-1",
@@ -65,11 +70,42 @@ describe("toAccountSummary", () => {
 });
 
 describe("valuePositions", () => {
-  const prices = {
-    getLastPrice: async (symbol: string): Promise<Decimal | null> =>
-      symbol === "TSLA" ? new Decimal("251.30") : null,
-    getPrevClose: async (): Promise<Decimal | null> => new Decimal("248.90"),
-  };
+  function countingPrices(): { lookup: PriceLookup; calls: () => number } {
+    let calls = 0;
+
+    return {
+      lookup: {
+        getLastPrices: async (symbols: string[]): Promise<Map<string, Decimal | null>> => {
+          calls += 1;
+
+          return new Map(
+            symbols.map((symbol) => [symbol, symbol === "TSLA" ? new Decimal("251.30") : null]),
+          );
+        },
+        getPrevClose: async (): Promise<Decimal | null> => new Decimal("248.90"),
+      },
+      calls: () => calls,
+    };
+  }
+
+  const prices = countingPrices().lookup;
+
+  it("looks the prices up in one call for every position", async () => {
+    const counting = countingPrices();
+
+    const values = await valuePositions(
+      [
+        { symbol: "TSLA", quantity: new Decimal("10"), averageCost: new Decimal("200") },
+        { symbol: "AAPL", quantity: new Decimal("4"), averageCost: new Decimal("100") },
+        { symbol: "MSFT", quantity: new Decimal("2"), averageCost: new Decimal("300") },
+      ],
+      counting.lookup,
+    );
+
+    expect(counting.calls()).toBe(1);
+    expect(values.positionsValue.toString()).toBe("3513");
+    expect(values.unrealizedPnl.toString()).toBe("513");
+  });
 
   it("values a position with the price service", async () => {
     const values = await valuePositions(

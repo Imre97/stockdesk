@@ -2,6 +2,7 @@ import { Decimal, type BarsResponseDto } from "@stockdesk/shared";
 import type { Express } from "express";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { prisma } from "../src/lib/prisma.js";
 import { ALPACA_HISTORY_DEPTH } from "../src/modules/market/providers/alpaca/provider.js";
 import type { Bar, BarsQuery } from "../src/modules/market/providers/types.js";
 import { bucketStartMs, previousBucketStartMs } from "../src/modules/market/timeframes.js";
@@ -55,6 +56,33 @@ const deepProviders: CreateTestMarketOptions["providers"] = (simulated) => [
   simulated,
 ];
 
+interface RecoveringDeepProvider {
+  providers: CreateTestMarketOptions["providers"];
+  recover: () => void;
+}
+
+function recoveringDeepProviders(): RecoveringDeepProvider {
+  let available = false;
+
+  return {
+    providers: (simulated) => [
+      createFakeProvider({
+        name: "alpaca",
+        capabilities: ["bars"],
+        historyDepth: ALPACA_HISTORY_DEPTH,
+        getBars: async (query: BarsQuery): Promise<Bar[]> => {
+          if (!available) throw new Error("alpaca is unavailable");
+          return deepBars(query);
+        },
+      }),
+      simulated,
+    ],
+    recover: () => {
+      available = true;
+    },
+  };
+}
+
 async function openMarket(
   providers?: CreateTestMarketOptions["providers"],
 ): Promise<{ market: TestMarket; token: string }> {
@@ -104,5 +132,29 @@ describe("request window floored by the routed bars provider history depth", () 
     expect(response.status).toBe(200);
     expect(page(response).bars).toEqual([]);
     expect(page(response).hasMore).toBe(false);
+  });
+
+  it("marks no coverage for a window the serving provider could not reach", async () => {
+    const deep = recoveringDeepProviders();
+    const { market, token } = await openMarket(deep.providers);
+
+    const response = await fetchOldPage(market.app, token);
+
+    expect(response.status).toBe(200);
+    expect(page(response).bars).toEqual([]);
+    expect(await prisma.candleCoverage.count()).toBe(0);
+  });
+
+  it("fetches the deep window once the deep bars provider recovers", async () => {
+    const deep = recoveringDeepProviders();
+    const { market, token } = await openMarket(deep.providers);
+
+    expect(page(await fetchOldPage(market.app, token)).bars).toEqual([]);
+
+    deep.recover();
+    const response = await fetchOldPage(market.app, token);
+
+    expect(response.status).toBe(200);
+    expect(page(response).bars).toHaveLength(PAGE);
   });
 });

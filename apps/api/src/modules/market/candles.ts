@@ -83,7 +83,33 @@ function missingRange(coverage: CoverageRow[], lowerBound: Date, end: Date): Fet
   return { start: lowerBound, end };
 }
 
+/**
+ * Coverage may only claim the part of the fetched range the serving provider could deliver: the
+ * requested lower bound floored by that provider's history depth, extended down to a bar it did
+ * return from below the floor. A range entirely below the floor stays uncovered.
+ */
+function coverageFrom(range: FetchRange, oldest: Date | undefined, floorMs: number): Date | null {
+  const oldestMs = oldest?.getTime();
+  const requestedMs = Math.min(range.start.getTime(), oldestMs ?? range.start.getTime());
+  const reachableMs = Math.min(floorMs, oldestMs ?? floorMs);
+  const fromMs = Math.max(requestedMs, reachableMs);
+
+  return fromMs < range.end.getTime() ? new Date(fromMs) : null;
+}
+
 export function createCandleCache({ composite, now, log }: CandleCacheOptions): CandleCache {
+  function routedFloorMs(symbol: string, timeframe: Timeframe): number {
+    return historyFloorMs(now().getTime(), timeframe, composite.barsHistoryDepth(symbol));
+  }
+
+  function servedFloorMs(symbol: string, timeframe: Timeframe): number {
+    const served = composite.barsServedDepth(symbol);
+
+    return served === null
+      ? routedFloorMs(symbol, timeframe)
+      : historyFloorMs(now().getTime(), timeframe, served);
+  }
+
   async function fetchAndStore(
     symbolId: string,
     symbol: string,
@@ -118,11 +144,10 @@ export function createCandleCache({ composite, now, log }: CandleCacheOptions): 
       })),
     );
 
-    const oldest = fetched[0]?.time;
-    const from =
-      oldest !== undefined && oldest.getTime() < range.start.getTime() ? oldest : range.start;
-
-    await candlesRepository.addCoverage(symbolId, timeframe, from, range.end);
+    const covered = coverageFrom(range, fetched[0]?.time, servedFloorMs(symbol, timeframe));
+    if (covered !== null) {
+      await candlesRepository.addCoverage(symbolId, timeframe, covered, range.end);
+    }
 
     if (fetched.length === 0) {
       log(`Market data provider returned no ${timeframe} bars for ${symbol}`);
@@ -139,11 +164,10 @@ export function createCandleCache({ composite, now, log }: CandleCacheOptions): 
       const nowMs = now().getTime();
       const until = end ?? new Date(nowMs);
       const settled = new Date(bucketStartMs(Math.min(until.getTime(), nowMs), timeframe));
-      const depth = composite.barsHistoryDepth(symbol);
       const lowerBound = new Date(
         Math.max(
           windowStartMs(until.getTime(), timeframe, limit),
-          historyFloorMs(nowMs, timeframe, depth),
+          routedFloorMs(symbol, timeframe),
         ),
       );
 

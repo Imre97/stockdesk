@@ -26,6 +26,12 @@ export interface CandleInput {
   volume: Decimal;
 }
 
+export interface LatestCloseRow {
+  symbolId: string;
+  timeframe: string;
+  close: Prisma.Decimal;
+}
+
 export interface CoverageRow {
   id: string;
   from: Date;
@@ -102,20 +108,39 @@ function tuple(bar: CandleInput): Prisma.Sql {
     ${data.low}::decimal, ${data.close}::decimal, ${data.volume}::decimal, true)`;
 }
 
+const INSERT_COLUMNS = Prisma.sql`(
+  "id", "symbolId", "timeframe", "time", "open", "high", "low", "close", "volume", "isFinal"
+)`;
+
+const REPLACE_WITH_EXCLUDED = Prisma.sql`
+  "open" = EXCLUDED."open",
+  "high" = EXCLUDED."high",
+  "low" = EXCLUDED."low",
+  "close" = EXCLUDED."close",
+  "volume" = EXCLUDED."volume",
+  "isFinal" = true`;
+
 async function upsertBatch(bars: CandleInput[]): Promise<number> {
   return await prisma.$executeRaw`
-    INSERT INTO "Candle" (
-      "id", "symbolId", "timeframe", "time", "open", "high", "low", "close", "volume", "isFinal"
-    )
+    INSERT INTO "Candle" ${INSERT_COLUMNS}
     VALUES ${Prisma.join(bars.map(tuple))}
-    ON CONFLICT ("symbolId", "timeframe", "time") DO UPDATE SET
-      "open" = EXCLUDED."open",
-      "high" = EXCLUDED."high",
-      "low" = EXCLUDED."low",
-      "close" = EXCLUDED."close",
-      "volume" = EXCLUDED."volume",
-      "isFinal" = true
+    ON CONFLICT ("symbolId", "timeframe", "time") DO UPDATE SET ${REPLACE_WITH_EXCLUDED}
   `;
+}
+
+/**
+ * A provider page may repeat a bucket, and PostgreSQL rejects a whole `ON CONFLICT DO UPDATE`
+ * statement whose `VALUES` list touches one row twice. The later row of the page wins, which is
+ * also the provider's own correction order.
+ */
+function deduplicate(bars: CandleInput[]): CandleInput[] {
+  const byBucket = new Map<string, CandleInput>();
+
+  for (const bar of bars) {
+    byBucket.set(`${bar.symbolId}|${bar.timeframe}|${bar.time.getTime()}`, bar);
+  }
+
+  return [...byBucket.values()];
 }
 
 /**
@@ -125,10 +150,11 @@ async function upsertBatch(bars: CandleInput[]): Promise<number> {
  * bind parameter count of one statement well under the PostgreSQL limit for a large page.
  */
 export async function insertFinalBars(bars: CandleInput[]): Promise<number> {
+  const unique = deduplicate(bars);
   let written = 0;
 
-  for (let offset = 0; offset < bars.length; offset += UPSERT_BATCH_SIZE) {
-    written += await upsertBatch(bars.slice(offset, offset + UPSERT_BATCH_SIZE));
+  for (let offset = 0; offset < unique.length; offset += UPSERT_BATCH_SIZE) {
+    written += await upsertBatch(unique.slice(offset, offset + UPSERT_BATCH_SIZE));
   }
 
   return written;
@@ -146,16 +172,18 @@ export async function saveFormingBar(bar: CandleInput): Promise<void> {
   });
 }
 
+/**
+ * The live aggregator owns a bucket only while its row is absent or still forming: the sweep can
+ * close a bucket after a REST fetch already stored the provider's authoritative bar, and the
+ * `isFinal = false` predicate makes that late write a no-op instead of an overwrite.
+ */
 export async function finalizeBar(bar: CandleInput): Promise<void> {
-  const data = values(bar);
-
-  await prisma.candle.upsert({
-    where: {
-      symbolId_timeframe_time: { symbolId: bar.symbolId, timeframe: bar.timeframe, time: bar.time },
-    },
-    create: { symbolId: bar.symbolId, timeframe: bar.timeframe, time: bar.time, isFinal: true, ...data },
-    update: { isFinal: true, ...data },
-  });
+  await prisma.$executeRaw`
+    INSERT INTO "Candle" ${INSERT_COLUMNS}
+    VALUES ${tuple(bar)}
+    ON CONFLICT ("symbolId", "timeframe", "time") DO UPDATE SET ${REPLACE_WITH_EXCLUDED}
+    WHERE "Candle"."isFinal" = false
+  `;
 }
 
 export async function latestBar(symbolId: string, timeframe: Timeframe): Promise<CandleRow | null> {
@@ -164,6 +192,25 @@ export async function latestBar(symbolId: string, timeframe: Timeframe): Promise
     orderBy: { time: "desc" },
     select: CANDLE_COLUMNS,
   });
+}
+
+/**
+ * The newest bar of every requested `(symbolId, timeframe)` pair in one statement, so pricing a
+ * whole position list costs one candle query instead of one read per symbol.
+ */
+export async function latestClosesFor(
+  symbolIds: string[],
+  timeframes: Timeframe[],
+): Promise<LatestCloseRow[]> {
+  if (symbolIds.length === 0 || timeframes.length === 0) return [];
+
+  return await prisma.$queryRaw<LatestCloseRow[]>`
+    SELECT DISTINCT ON ("symbolId", "timeframe") "symbolId", "timeframe", "close"
+    FROM "Candle"
+    WHERE "symbolId" IN (${Prisma.join(symbolIds)})
+      AND "timeframe" IN (${Prisma.join(timeframes)})
+    ORDER BY "symbolId", "timeframe", "time" DESC
+  `;
 }
 
 export async function latestFinalBarBefore(
@@ -230,59 +277,4 @@ export async function addCoverage(
       data: { symbolId, timeframe, from: mergedFrom, to: mergedTo },
     });
   });
-}
-
-export async function trimCoverageBefore(
-  symbolId: string,
-  timeframe: Timeframe,
-  oldestKeptTime: Date,
-): Promise<void> {
-  await prisma.candleCoverage.deleteMany({
-    where: { symbolId, timeframe, to: { lte: oldestKeptTime } },
-  });
-
-  await prisma.candleCoverage.updateMany({
-    where: { symbolId, timeframe, from: { lt: oldestKeptTime } },
-    data: { from: oldestKeptTime },
-  });
-}
-
-export async function countBars(symbolId: string, timeframe: Timeframe): Promise<number> {
-  return await prisma.candle.count({ where: { symbolId, timeframe } });
-}
-
-export async function oldestBarTime(symbolId: string, timeframe: Timeframe): Promise<Date | null> {
-  const oldest = await prisma.candle.findFirst({
-    where: { symbolId, timeframe },
-    orderBy: { time: "asc" },
-    select: { time: true },
-  });
-
-  return oldest?.time ?? null;
-}
-
-export async function listSeries(): Promise<{ symbolId: string; timeframe: string }[]> {
-  return await prisma.$queryRaw<{ symbolId: string; timeframe: string }[]>`
-    SELECT DISTINCT "symbolId", "timeframe" FROM "Candle"
-  `;
-}
-
-export async function deleteOldestBarsAbove(
-  symbolId: string,
-  timeframe: Timeframe,
-  cap: number,
-): Promise<number> {
-  return await prisma.$executeRaw`
-    DELETE FROM "Candle"
-    WHERE "symbolId" = ${symbolId}
-      AND "timeframe" = ${timeframe}
-      AND "time" < (
-        SELECT MIN("time") FROM (
-          SELECT "time" FROM "Candle"
-          WHERE "symbolId" = ${symbolId} AND "timeframe" = ${timeframe}
-          ORDER BY "time" DESC
-          LIMIT ${cap}
-        ) kept
-      )
-  `;
 }

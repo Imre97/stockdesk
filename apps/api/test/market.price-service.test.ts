@@ -38,6 +38,10 @@ function manualTimers(): ManualTimers {
 
 const runtimes: MarketRuntime[] = [];
 
+function quoted(prices: Map<string, Decimal | null>): string[] {
+  return [...prices].map(([symbol, price]) => `${symbol}=${price?.toString() ?? "null"}`);
+}
+
 function buildRuntime(now: Date, timers?: PriceTimers, real = false) {
   const provider = createSimulatedProvider({ seed: MARKET_SEED, now: () => now });
   const providers = real
@@ -97,6 +101,30 @@ describe("price service", () => {
     expect((await runtime.priceService.getLastPrice("TSLA"))?.toString()).toBe(
       new Decimal(newest?.close ?? "0").toString(),
     );
+  });
+
+  it("batches the last prices exactly like the per-symbol lookup", async () => {
+    const { provider, runtime } = buildRuntime(MARKET_NOW);
+
+    await provider.subscribeTrades(["TSLA"]);
+    provider.emitTick();
+    await runtime.aggregator.flush();
+    await runtime.candles.getBars({ symbol: "AAPL", timeframe: "1m", limit: 10 });
+    await runtime.candles.getBars({ symbol: "MSFT", timeframe: "1D", limit: 5 });
+
+    const symbols = ["TSLA", "AAPL", "MSFT", "XXXX"];
+    const batched = await runtime.priceService.getLastPrices(symbols);
+    const single = new Map<string, Decimal | null>();
+
+    for (const symbol of symbols) {
+      single.set(symbol, await runtime.priceService.getLastPrice(symbol));
+    }
+
+    expect(quoted(batched)).toEqual(quoted(single));
+    expect(quoted(batched)).toHaveLength(symbols.length);
+    expect(batched.get("XXXX")).toBeNull();
+    expect(batched.get("AAPL")).not.toBeNull();
+    expect(batched.get("MSFT")).not.toBeNull();
   });
 
   it("reads the previous close from the last daily candle before the trading day", async () => {

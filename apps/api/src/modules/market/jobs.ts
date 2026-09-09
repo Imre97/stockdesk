@@ -1,6 +1,6 @@
 import type { Timeframe } from "@stockdesk/shared";
 import type { AppConfig } from "../../lib/config.js";
-import * as candlesRepository from "./candles-repository.js";
+import * as retentionRepository from "./candle-retention-repository.js";
 import type { MarketRuntime } from "./runtime.js";
 
 export const CANDLE_MAX_ROWS_PER_SERIES = 5000;
@@ -42,7 +42,7 @@ export function createMarketJobs(options: MarketJobsOptions): MarketJobs {
   }
 
   async function thinSeries(symbolId: string, timeframe: Timeframe): Promise<number> {
-    const deleted = await candlesRepository.deleteOldestBarsAbove(
+    const deleted = await retentionRepository.deleteOldestBarsAbove(
       symbolId,
       timeframe,
       CANDLE_MAX_ROWS_PER_SERIES,
@@ -50,8 +50,8 @@ export function createMarketJobs(options: MarketJobsOptions): MarketJobs {
 
     if (deleted === 0) return 0;
 
-    const oldest = await candlesRepository.oldestBarTime(symbolId, timeframe);
-    if (oldest !== null) await candlesRepository.trimCoverageBefore(symbolId, timeframe, oldest);
+    const oldest = await retentionRepository.oldestBarTime(symbolId, timeframe);
+    if (oldest !== null) await retentionRepository.trimCoverageBefore(symbolId, timeframe, oldest);
 
     return deleted;
   }
@@ -59,7 +59,7 @@ export function createMarketJobs(options: MarketJobsOptions): MarketJobs {
   async function thinAll(): Promise<void> {
     let deleted = 0;
 
-    for (const series of await candlesRepository.listSeries()) {
+    for (const series of await retentionRepository.listSeries()) {
       deleted += await thinSeries(series.symbolId, series.timeframe as Timeframe);
     }
 

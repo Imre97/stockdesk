@@ -11,7 +11,7 @@ export interface AccountsDependencies {
   broadcast?: Broadcast | undefined;
   now?: (() => Date) | undefined;
   reportError?: ((message: string) => void) | undefined;
-  prices?: Pick<PriceService, "getLastPrice" | "getPrevClose"> | undefined;
+  prices?: Pick<PriceService, "getLastPrices" | "getPrevClose"> | undefined;
 }
 
 export function currentTime(dependencies: AccountsDependencies): Date {
