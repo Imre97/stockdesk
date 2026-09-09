@@ -13,6 +13,7 @@ const settingsApi = vi.hoisted(() => ({ fetchSettings: vi.fn(), updateSettings: 
 vi.mock("../accounts/api", () => accountsApi);
 vi.mock("../settings/api", () => settingsApi);
 
+import { accountSummaryDto } from "../../test/fixtures";
 import { useAccountsStore } from "../accounts/store";
 import { resetClientState } from "../auth/session-reset";
 import { useAuthStore } from "../auth/store";
@@ -25,18 +26,7 @@ function user(id: string, displayName: string) {
 }
 
 function accountDto(id: string, name: string) {
-  return {
-    id,
-    name,
-    cash: "100000.00",
-    positionsValue: "0.00",
-    equity: "100000.00",
-    unrealizedPnl: "0.00",
-    unrealizedPnlPct: "0.00",
-    dailyPnl: "0.00",
-    dailyPnlPct: "0.00",
-    createdAt: "2026-09-08T10:00:00.000Z",
-  };
+  return accountSummaryDto({ id, name });
 }
 
 const ACCOUNTS: Record<string, { accounts: ReturnType<typeof accountDto>[] }> = {

@@ -46,6 +46,7 @@
   "position.columns.marketValue": "Piaci érték",
   "position.columns.unrealizedPnl": "Nem realizált eredmény",
   "position.columns.dailyChange": "Napi",
+  "position.short": "SHORT",
   "position.empty": "Az aktív számlán nincs pozíció ebben a szimbólumban.",
   "trades.columns.executedAt": "Teljesült",
   "trades.columns.side": "Irány",

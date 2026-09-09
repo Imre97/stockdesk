@@ -5,7 +5,6 @@ import type {
   CreateAccountInput,
   EquityRange,
   EquityResponse,
-  PositionsResponse,
   RenameAccountInput,
 } from "@stockdesk/shared";
 import { useMutation, useQuery, type UseMutationResult, type UseQueryResult } from "@tanstack/react-query";
@@ -78,17 +77,6 @@ export function useEquity(accountId: string | null, range: EquityRange): UseQuer
   return useQuery({
     queryKey: equityQueryKey(userId, accountId, range),
     queryFn: () => api.getEquity(accountId ?? "", range),
-    enabled: accountId !== null,
-    staleTime: MARKET_DATA_STALE_TIME_MS,
-  });
-}
-
-export function usePositions(accountId: string | null): UseQueryResult<PositionsResponse> {
-  const userId = useCurrentUserId();
-
-  return useQuery({
-    queryKey: positionsQueryKey(userId, accountId),
-    queryFn: () => api.getPositions(accountId ?? ""),
     enabled: accountId !== null,
     staleTime: MARKET_DATA_STALE_TIME_MS,
   });

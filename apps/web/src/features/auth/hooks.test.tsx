@@ -16,6 +16,7 @@ vi.mock("./api", () => api);
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigate }));
 
 import { queryClient } from "../../lib/query-client";
+import { accountSummaryDto } from "../../test/fixtures";
 import { useAccountsStore } from "../accounts/store";
 import { useFundingStore } from "../funding/store";
 import { useSettingsStore } from "../settings/store";
@@ -29,18 +30,7 @@ const USER = {
   createdAt: "2026-09-08T10:00:00.000Z",
 };
 
-const ACCOUNT_DTO = {
-  id: "acc-1",
-  name: "Main",
-  cash: "100000.00",
-  positionsValue: "0.00",
-  equity: "100000.00",
-  unrealizedPnl: "0.00",
-  unrealizedPnlPct: "0.00",
-  dailyPnl: "0.00",
-  dailyPnlPct: "0.00",
-  createdAt: "2026-09-08T10:00:00.000Z",
-};
+const ACCOUNT_DTO = accountSummaryDto();
 
 function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;

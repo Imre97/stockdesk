@@ -12,6 +12,7 @@ vi.mock("./api", () => api);
 vi.mock("sonner", () => ({ toast }));
 
 import { i18n } from "../../i18n";
+import { accountSummaryDto } from "../../test/fixtures";
 import { useAccountsStore } from "../accounts/store";
 import { useAuthStore } from "../auth/store";
 import { useSettingsStore } from "../settings/store";
@@ -25,18 +26,7 @@ import {
 import { useFundingStore } from "./store";
 
 function accountDto(id: string, name: string, createdAt: string, cash = "100000.00") {
-  return {
-    id,
-    name,
-    cash,
-    positionsValue: "0.00",
-    equity: cash,
-    unrealizedPnl: "0.00",
-    unrealizedPnlPct: "0.00",
-    dailyPnl: "0.00",
-    dailyPnlPct: "0.00",
-    createdAt,
-  };
+  return accountSummaryDto({ id, name, cash, equity: cash, createdAt });
 }
 
 const MAIN = accountDto("acc-1", "Main", "2026-09-08T10:00:00.000Z");

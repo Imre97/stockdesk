@@ -26,6 +26,8 @@ export interface AccountViewModel {
   dailyPnl: string;
   dailyPnlPct: string;
   dailyTone: PnlTone;
+  buyingPower: string;
+  marginDeficit: boolean;
 }
 
 const LOCALES: Record<Language, string> = { en: "en-US", hu: "hu-HU" };
@@ -98,5 +100,7 @@ export function toAccountViewModel(account: AccountSummary, locale: string): Acc
     dailyPnl: formatSignedMoney(account.dailyPnl, locale),
     dailyPnlPct: formatPercent(account.dailyPnlPct, locale),
     dailyTone: pnlTone(account.dailyPnl),
+    buyingPower: formatMoney(account.buyingPower, locale),
+    marginDeficit: account.marginDeficit,
   };
 }

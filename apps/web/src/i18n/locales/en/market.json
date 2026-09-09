@@ -46,6 +46,7 @@
   "position.columns.marketValue": "Market value",
   "position.columns.unrealizedPnl": "Unrealized P&L",
   "position.columns.dailyChange": "Day",
+  "position.short": "SHORT",
   "position.empty": "No position in this symbol on the active account.",
   "trades.columns.executedAt": "Executed",
   "trades.columns.side": "Side",

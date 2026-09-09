@@ -57,6 +57,7 @@ vi.mock("../../accounts/api", () => accountsApi);
 vi.mock("../subscriptions", () => subscriptions);
 
 import { i18n } from "../../../i18n";
+import { accountSummaryDto } from "../../../test/fixtures";
 import { useAccountsStore } from "../../accounts/store";
 import { useAuthStore } from "../../auth/store";
 import { useMarketStore } from "../store";
@@ -69,18 +70,12 @@ const USER = {
   createdAt: "2026-09-08T10:00:00.000Z",
 };
 
-const ACCOUNT = {
+const ACCOUNT = accountSummaryDto({
   id: "account-1",
-  name: "Main",
   cash: "1000.00",
-  positionsValue: "0.00",
   equity: "1000.00",
-  unrealizedPnl: "0.00",
-  unrealizedPnlPct: "0.00",
-  dailyPnl: "0.00",
-  dailyPnlPct: "0.00",
   createdAt: "2026-09-01T10:00:00.000Z",
-};
+});
 
 const DETAIL: SymbolDetailDto = {
   symbol: "TSLA",

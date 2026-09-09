@@ -14,23 +14,13 @@ const api = vi.hoisted(() => ({
 vi.mock("./api", () => api);
 
 import { HttpError } from "../../lib/http";
+import { accountSummaryDto } from "../../test/fixtures";
 import { useSettingsStore } from "../settings/store";
 import { useCreateAccountForm, useRenameAccountForm } from "./form";
 import { useAccountsStore } from "./store";
 
 function accountDto(id: string, name: string, createdAt: string) {
-  return {
-    id,
-    name,
-    cash: "0.00",
-    positionsValue: "0.00",
-    equity: "0.00",
-    unrealizedPnl: "0.00",
-    unrealizedPnlPct: "0.00",
-    dailyPnl: "0.00",
-    dailyPnlPct: "0.00",
-    createdAt,
-  };
+  return accountSummaryDto({ id, name, cash: "0.00", equity: "0.00", createdAt });
 }
 
 const MAIN = accountDto("acc-1", "Main", "2026-09-08T10:00:00.000Z");

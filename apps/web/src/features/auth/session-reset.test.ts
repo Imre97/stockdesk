@@ -1,30 +1,23 @@
+import { positionSchema } from "@stockdesk/shared";
 import { QueryClient } from "@tanstack/react-query";
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { accountSummaryDto, orderDto, positionDto } from "../../test/fixtures";
 import { useAccountsStore } from "../accounts/store";
 import { useFundingStore } from "../funding/store";
 import { marketStatusQueryKey, symbolDetailQueryKey } from "../market/hooks";
 import { RECENT_SYMBOLS_STORAGE_KEY, pushRecentSymbol, readRecentSymbols } from "../market/recent-symbols";
 import { useMarketStore } from "../market/store";
+import { useOrdersStore } from "../orders/store";
+import { usePositionsStore } from "../positions/store";
 import { SETTINGS_STORAGE_KEY, readCachedSettings } from "../settings/storage";
 import { useSettingsStore } from "../settings/store";
 import { useAccountSummaryStream } from "../shell/hooks";
 import { resetClientState } from "./session-reset";
 import { useAuthStore } from "./store";
 
-const ACCOUNT_DTO = {
-  id: "acc-1",
-  name: "Main",
-  cash: "100000.00",
-  positionsValue: "0.00",
-  equity: "100000.00",
-  unrealizedPnl: "0.00",
-  unrealizedPnlPct: "0.00",
-  dailyPnl: "0.00",
-  dailyPnlPct: "0.00",
-  createdAt: "2026-09-08T10:00:00.000Z",
-};
+const ACCOUNT_DTO = accountSummaryDto();
 
 const QUOTE_MESSAGE = {
   type: "quote" as const,
@@ -97,6 +90,8 @@ beforeEach(() => {
   useSettingsStore.setState({ language: "en", theme: "system", defaultAccountId: null, status: "idle" });
   useFundingStore.setState({ selectedAccountId: null });
   useMarketStore.getState().reset();
+  usePositionsStore.getState().reset();
+  useOrdersStore.getState().reset();
 });
 
 afterEach(() => {
@@ -169,6 +164,34 @@ describe("resetClientState", () => {
 
     expect(useAccountsStore.getState().accounts).toEqual([]);
     unmount();
+  });
+});
+
+describe("resetClientState and the positions feature", () => {
+  it("drops the open positions and the per-account load status of the previous user", () => {
+    usePositionsStore.getState().setPositions("acc-1", [positionSchema.parse(positionDto())]);
+
+    expect(usePositionsStore.getState().positionsByAccount["acc-1"]).toBeDefined();
+
+    resetClientState({ queryClient });
+
+    expect(usePositionsStore.getState().positionsByAccount).toEqual({});
+    expect(usePositionsStore.getState().statusByAccount).toEqual({});
+  });
+});
+
+describe("resetClientState and the orders feature", () => {
+  it("drops the orders and the pushed trade history of the previous user", () => {
+    useOrdersStore.getState().applyOrderUpdate({ type: "order_update", order: orderDto() });
+
+    expect(useOrdersStore.getState().ordersById["order-1"]).toBeDefined();
+
+    resetClientState({ queryClient });
+
+    expect(useOrdersStore.getState().ordersById).toEqual({});
+    expect(useOrdersStore.getState().idsByAccount).toEqual({});
+    expect(useOrdersStore.getState().idsBySymbol).toEqual({});
+    expect(useOrdersStore.getState().tradesByAccountSymbol).toEqual({});
   });
 });
 

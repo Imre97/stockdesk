@@ -29,8 +29,10 @@ vi.mock("./api", () => marketApi);
 vi.mock("../accounts/api", () => accountsApi);
 vi.mock("./subscriptions", () => subscriptions);
 
+import { accountSummaryDto, positionDto, positionRecordDto } from "../../test/fixtures";
 import { useAccountsStore } from "../accounts/store";
 import { useAuthStore } from "../auth/store";
+import { usePositionsStore } from "../positions/store";
 import { CHART_PREFS_STORAGE_KEY } from "./chart-prefs";
 import { useChartPrefs, useSidePanel, useSymbolPage, useSymbolPosition } from "./page-hooks";
 import { useMarketStore } from "./store";
@@ -76,9 +78,9 @@ const DETAIL: SymbolDetailDto = {
 
 const POSITIONS = positionsResponseSchema.parse({
   positions: [
-    {
+    positionDto({
       symbol: "TSLA",
-      quantity: "10",
+      quantity: "10.000000",
       averageCost: "240.0000",
       lastPrice: "251.3400",
       marketValue: "2513.40",
@@ -86,10 +88,10 @@ const POSITIONS = positionsResponseSchema.parse({
       unrealizedPnlPct: "4.73",
       dailyChange: "24.40",
       dailyChangePct: "0.98",
-    },
-    {
+    }),
+    positionDto({
       symbol: "AAPL",
-      quantity: "5",
+      quantity: "5.000000",
       averageCost: "180.0000",
       lastPrice: "190.0000",
       marketValue: "950.00",
@@ -97,22 +99,16 @@ const POSITIONS = positionsResponseSchema.parse({
       unrealizedPnlPct: "5.56",
       dailyChange: "5.00",
       dailyChangePct: "0.53",
-    },
+    }),
   ],
 });
 
-const ACCOUNT = {
+const ACCOUNT = accountSummaryDto({
   id: "account-1",
-  name: "Main",
   cash: "1000.00",
-  positionsValue: "0.00",
   equity: "1000.00",
-  unrealizedPnl: "0.00",
-  unrealizedPnlPct: "0.00",
-  dailyPnl: "0.00",
-  dailyPnlPct: "0.00",
   createdAt: "2026-09-01T10:00:00.000Z",
-};
+});
 
 let queryClient: QueryClient;
 
@@ -127,6 +123,7 @@ beforeEach(() => {
   useAuthStore.setState({ user: USER, accessToken: "token-1", status: "authenticated" });
   useAccountsStore.getState().reset();
   useMarketStore.getState().reset();
+  usePositionsStore.getState().reset();
   marketApi.getSymbol.mockResolvedValue(symbolDetailSchema.parse(DETAIL));
   marketApi.getMarketStatus.mockResolvedValue({ status: "open", nextOpenAt: null, nextCloseAt: null });
   accountsApi.getPositions.mockResolvedValue(POSITIONS);
@@ -244,7 +241,7 @@ describe("useSymbolPosition", () => {
     useAccountsStore.getState().setAccounts([ACCOUNT]);
   });
 
-  it("returns the active account position of this symbol", async () => {
+  it("values the active account position of this symbol from the positions store and the live quote", async () => {
     const { result } = renderHook(() => useSymbolPosition("TSLA"), { wrapper });
 
     await waitFor(() => {
@@ -252,7 +249,22 @@ describe("useSymbolPosition", () => {
     });
 
     expect(result.current?.symbol).toBe("TSLA");
+    expect(result.current?.marketValue).toBe("$2,400.00");
+
+    act(() => {
+      useMarketStore.getState().applyQuote({
+        type: "quote",
+        symbol: "TSLA",
+        price: "251.3400",
+        size: "100",
+        at: "2026-09-08T14:30:01.123Z",
+        prevClose: "248.9000",
+      });
+    });
+
     expect(result.current?.marketValue).toBe("$2,513.40");
+    expect(result.current?.unrealizedPnl).toBe("+$113.40");
+    expect(result.current?.short).toBe(false);
   });
 
   it("returns null for a symbol the account does not hold", async () => {
@@ -261,6 +273,28 @@ describe("useSymbolPosition", () => {
     await waitFor(() => {
       expect(accountsApi.getPositions).toHaveBeenCalled();
     });
+
+    expect(result.current).toBeNull();
+  });
+
+  it("drops the row when a position update closes the position", async () => {
+    const { result } = renderHook(() => useSymbolPosition("TSLA"), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current).not.toBeNull();
+    });
+
+    act(() =>
+      usePositionsStore.getState().applyPositionUpdate({
+        type: "position_update",
+        position: positionRecordDto({
+          accountId: "account-1",
+          symbol: "TSLA",
+          quantity: "0.000000",
+          closedAt: "2026-09-08T15:00:00.000Z",
+        }),
+      }),
+    );
 
     expect(result.current).toBeNull();
   });

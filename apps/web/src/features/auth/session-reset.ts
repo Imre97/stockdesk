@@ -6,6 +6,8 @@ import { useAccountsStore } from "../accounts/store";
 import { useFundingStore } from "../funding/store";
 import { clearRecentSymbols } from "../market/recent-symbols";
 import { useMarketStore } from "../market/store";
+import { useOrdersStore } from "../orders/store";
+import { usePositionsStore } from "../positions/store";
 import { useSettingsStore } from "../settings/store";
 import { clearBootstrappedUserId } from "../shell/bootstrap-state";
 
@@ -25,6 +27,8 @@ export function resetClientState({ queryClient }: ResetClientStateOptions): void
   useSettingsStore.getState().reset();
   useFundingStore.getState().reset();
   useMarketStore.getState().reset();
+  usePositionsStore.getState().reset();
+  useOrdersStore.getState().reset();
   clearRecentSymbols();
   clearBootstrappedUserId();
   queryClient.clear();

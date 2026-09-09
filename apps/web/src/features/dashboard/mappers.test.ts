@@ -1,21 +1,11 @@
 import { equityPointSchema, positionSchema, type PositionDto } from "@stockdesk/shared";
 import { describe, expect, it } from "vitest";
 
+import { positionDto } from "../../test/fixtures";
 import { toEquitySeries, toPositionViewModel } from "./mappers";
 
 function position(overrides: Partial<PositionDto> = {}): PositionDto {
-  return {
-    symbol: "AAPL",
-    quantity: "10",
-    averageCost: "180.2500",
-    lastPrice: "182.1000",
-    marketValue: "1821.00",
-    unrealizedPnl: "18.50",
-    unrealizedPnlPct: "1.03",
-    dailyChange: "-4.20",
-    dailyChangePct: "-0.23",
-    ...overrides,
-  };
+  return positionDto(overrides);
 }
 
 describe("toEquitySeries", () => {
@@ -51,6 +41,19 @@ describe("toPositionViewModel", () => {
     expect(view.dailyChange).toBe("-$4.20");
     expect(view.dailyChangePct).toBe("-0.23%");
     expect(view.dailyTone).toBe("loss");
+    expect(view.short).toBe(false);
+    expect(view.realizedPnl).toBe("$0.00");
+  });
+
+  it("flags a negative quantity as a short and keeps the sign on the quantity", () => {
+    const view = toPositionViewModel(
+      positionSchema.parse(position({ quantity: "-10.000000", realizedPnl: "-25.00" })),
+      "en-US",
+    );
+
+    expect(view.short).toBe(true);
+    expect(view.quantity).toBe("-10");
+    expect(view.realizedPnl).toBe("-$25.00");
   });
 
   it("marks a flat position as neutral", () => {

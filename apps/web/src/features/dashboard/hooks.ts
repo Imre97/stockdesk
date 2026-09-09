@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 import type { EquityRange } from "@stockdesk/shared";
 
-import { useActiveAccountId, useEquity, usePositions } from "../accounts/hooks";
-import { useSettingsLocale } from "../settings/hooks";
-import { toEquitySeries, toPositionViewModel, type EquitySeriesPoint, type PositionViewModel } from "./mappers";
+import { useActiveAccountId, useEquity } from "../accounts/hooks";
+import { useActivePositions, usePositionRows as usePositionRowsOf } from "../positions/hooks";
+import { toEquitySeries, type EquitySeriesPoint, type PositionViewModel } from "./mappers";
 
 export const EQUITY_RANGES: readonly EquityRange[] = ["1D", "5D", "1W", "1M", "1Y"];
 export const DEFAULT_EQUITY_RANGE: EquityRange = "1D";
@@ -37,13 +37,7 @@ export function useEquityChartData(range: EquityRange): EquityChartData {
 }
 
 export function usePositionRows(): PositionViewModel[] {
-  const accountId = useActiveAccountId();
-  const query = usePositions(accountId);
-  const locale = useSettingsLocale();
-  const positions = query.data?.positions;
+  const accountId = useActivePositions();
 
-  return useMemo(
-    () => (positions ?? []).map((position) => toPositionViewModel(position, locale)),
-    [positions, locale],
-  );
+  return usePositionRowsOf(accountId);
 }

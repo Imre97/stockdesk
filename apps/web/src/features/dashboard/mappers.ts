@@ -19,6 +19,7 @@ export interface EquitySeriesPoint {
 
 export interface PositionViewModel {
   symbol: string;
+  short: boolean;
   quantity: string;
   averageCost: string;
   lastPrice: string;
@@ -29,6 +30,7 @@ export interface PositionViewModel {
   dailyChange: string;
   dailyChangePct: string;
   dailyTone: PnlTone;
+  realizedPnl: string;
 }
 
 /**
@@ -45,6 +47,7 @@ export function toEquitySeries(points: EquityPoint[]): EquitySeriesPoint[] {
 export function toPositionViewModel(position: Position, locale: string): PositionViewModel {
   return {
     symbol: position.symbol,
+    short: position.quantity.isNegative(),
     quantity: formatQuantity(position.quantity, locale),
     averageCost: formatMoney(position.averageCost, locale),
     lastPrice: formatMoney(position.lastPrice, locale),
@@ -55,5 +58,6 @@ export function toPositionViewModel(position: Position, locale: string): Positio
     dailyChange: formatSignedMoney(position.dailyChange, locale),
     dailyChangePct: formatPercent(position.dailyChangePct, locale),
     dailyTone: pnlTone(position.dailyChange),
+    realizedPnl: formatSignedMoney(position.realizedPnl, locale),
   };
 }

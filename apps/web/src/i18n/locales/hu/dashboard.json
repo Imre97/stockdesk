@@ -9,6 +9,7 @@
   "accountHeader.daily": "Napi",
   "positions.title": "Pozíciók",
   "positions.symbol": "Szimbólum",
+  "positions.short": "SHORT",
   "positions.quantity": "Mennyiség",
   "positions.averageCost": "Átlagár",
   "positions.lastPrice": "Utolsó ár",

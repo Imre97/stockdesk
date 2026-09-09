@@ -9,6 +9,7 @@
   "accountHeader.daily": "Day",
   "positions.title": "Positions",
   "positions.symbol": "Symbol",
+  "positions.short": "SHORT",
   "positions.quantity": "Quantity",
   "positions.averageCost": "Average cost",
   "positions.lastPrice": "Last price",

@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { toneClass } from "../../accounts/mappers";
@@ -37,7 +38,16 @@ export function SymbolPositionPanel({ symbol }: SymbolPositionPanelProps) {
       </TableHeader>
       <TableBody>
         <TableRow>
-          <TableCell className="tabular-nums">{row.quantity}</TableCell>
+          <TableCell className="tabular-nums">
+            <span className="flex items-center gap-1.5">
+              {row.quantity}
+              {row.short && (
+                <Badge className="text-[10px]" variant="outline">
+                  {t("position.short")}
+                </Badge>
+              )}
+            </span>
+          </TableCell>
           <TableCell className="tabular-nums">{row.averageCost}</TableCell>
           <TableCell className="tabular-nums">{row.lastPrice}</TableCell>
           <TableCell className="tabular-nums">{row.marketValue}</TableCell>

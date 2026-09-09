@@ -1,23 +1,12 @@
 import { Decimal, type AccountSummaryDto } from "@stockdesk/shared";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { accountSummaryDto } from "../../test/fixtures";
 import { useSettingsStore } from "../settings/store";
 import { useAccountsStore } from "./store";
 
 function dto(overrides: Partial<AccountSummaryDto> = {}): AccountSummaryDto {
-  return {
-    id: "acc-1",
-    name: "Main",
-    cash: "100000.00",
-    positionsValue: "0.00",
-    equity: "100000.00",
-    unrealizedPnl: "0.00",
-    unrealizedPnlPct: "0.00",
-    dailyPnl: "0.00",
-    dailyPnlPct: "0.00",
-    createdAt: "2026-09-08T10:00:00.000Z",
-    ...overrides,
-  };
+  return accountSummaryDto(overrides);
 }
 
 const MAIN = dto();

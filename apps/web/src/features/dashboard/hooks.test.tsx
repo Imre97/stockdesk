@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { equityResponseSchema, type EquityRange } from "@stockdesk/shared";
+import { equityResponseSchema, positionsResponseSchema, type EquityRange } from "@stockdesk/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -14,23 +14,15 @@ const accountsApi = vi.hoisted(() => ({
 
 vi.mock("../accounts/api", () => accountsApi);
 
+import { accountSummaryDto, positionDto } from "../../test/fixtures";
 import { useAccountsStore } from "../accounts/store";
+import { useMarketStore } from "../market/store";
+import { usePositionsStore } from "../positions/store";
 import { useSettingsStore } from "../settings/store";
-import { useEquityChartData } from "./hooks";
+import { useEquityChartData, usePositionRows } from "./hooks";
 
 function accountDto(id: string, name: string, createdAt: string) {
-  return {
-    id,
-    name,
-    cash: "100000.00",
-    positionsValue: "0.00",
-    equity: "100000.00",
-    unrealizedPnl: "0.00",
-    unrealizedPnlPct: "0.00",
-    dailyPnl: "0.00",
-    dailyPnlPct: "0.00",
-    createdAt,
-  };
+  return accountSummaryDto({ id, name, createdAt });
 }
 
 const EQUITY: Record<string, Record<string, string>> = {
@@ -44,6 +36,11 @@ function equityResponse(accountId: string, range: EquityRange) {
     points: [{ at: "2026-09-08T14:30:00.000Z", equity: EQUITY[accountId]?.[range] ?? "0.00" }],
   });
 }
+
+const POSITIONS: Record<string, ReturnType<typeof positionDto>[]> = {
+  "acc-1": [positionDto({ symbol: "AAPL", quantity: "10.000000", averageCost: "180.2500" })],
+  "acc-2": [positionDto({ symbol: "TSLA", quantity: "-4.000000", averageCost: "250.0000" })],
+};
 
 let queryClient: QueryClient;
 
@@ -65,6 +62,11 @@ beforeEach(() => {
   accountsApi.getEquity.mockImplementation((accountId: string, range: EquityRange) =>
     Promise.resolve(equityResponse(accountId, range)),
   );
+  accountsApi.getPositions.mockImplementation((accountId: string) =>
+    Promise.resolve(positionsResponseSchema.parse({ positions: POSITIONS[accountId] ?? [] })),
+  );
+  useMarketStore.getState().reset();
+  usePositionsStore.getState().reset();
 });
 
 describe("useEquityChartData", () => {
@@ -134,5 +136,28 @@ describe("useEquityChartData", () => {
 
     expect(result.current.series).toEqual([]);
     expect(result.current.isEmpty).toBe(true);
+  });
+});
+
+describe("usePositionRows", () => {
+  it("follows the sidebar active account", async () => {
+    const { result } = renderHook(() => usePositionRows(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current).toHaveLength(1);
+    });
+
+    expect(result.current[0]?.symbol).toBe("AAPL");
+    expect(result.current[0]?.short).toBe(false);
+
+    act(() => useAccountsStore.getState().setActiveAccount("acc-2"));
+
+    await waitFor(() => {
+      expect(result.current[0]?.symbol).toBe("TSLA");
+    });
+
+    expect(result.current[0]?.short).toBe(true);
+    expect(result.current[0]?.quantity).toBe("-4");
+    expect(accountsApi.getPositions).toHaveBeenCalledWith("acc-2");
   });
 });

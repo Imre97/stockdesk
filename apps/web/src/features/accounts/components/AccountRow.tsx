@@ -1,6 +1,7 @@
 import { ChevronDownIcon, ChevronRightIcon, PencilIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toneClass, type AccountViewModel } from "../mappers";
 
@@ -59,6 +60,15 @@ export function AccountRow({ account, active, expanded, onSelect, onToggle, onRe
           </dd>
           <dt className="text-muted-foreground">{t("row.daily")}</dt>
           <dd className={cn("text-right tabular-nums", toneClass(account.dailyTone))}>{account.dailyPnl}</dd>
+          <dt className="text-muted-foreground">{t("row.buyingPower")}</dt>
+          <dd className="text-right tabular-nums">{account.buyingPower}</dd>
+          {account.marginDeficit && (
+            <dd className="col-span-2 pt-1">
+              <Badge className="text-[10px]" variant="destructive">
+                {t("row.marginDeficit")}
+              </Badge>
+            </dd>
+          )}
         </dl>
       )}
     </li>

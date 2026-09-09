@@ -1,6 +1,7 @@
 import { symbolDetailSchema, tradeSchema, type SymbolDetailDto, type TradeDto } from "@stockdesk/shared";
 import { describe, expect, it } from "vitest";
 
+import { tradeDto } from "../../test/fixtures";
 import { toKeyStatRows, toTradeRow } from "./panel-mappers";
 
 const LOCALE = "en-US";
@@ -47,17 +48,7 @@ const EMPTY_STATS: SymbolDetailDto["stats"] = {
   dividendYield: null,
 };
 
-const TRADE: TradeDto = {
-  id: "trade-1",
-  orderId: "order-1",
-  symbol: "TSLA",
-  side: "BUY",
-  quantity: "10",
-  price: "250.0000",
-  amount: "-2500.00",
-  realizedPnl: null,
-  executedAt: "2026-09-08T14:31:00.000Z",
-};
+const TRADE: TradeDto = tradeDto({ amount: "-2500.00" });
 
 function rowValue(rows: ReturnType<typeof toKeyStatRows>, labelKey: string): string | null {
   const row = rows.find((entry) => entry.labelKey === labelKey);

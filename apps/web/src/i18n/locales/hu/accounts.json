@@ -2,6 +2,8 @@
   "row.equity": "Számlaérték",
   "row.unrealized": "Nem realizált",
   "row.daily": "Napi",
+  "row.buyingPower": "Vásárlóerő",
+  "row.marginDeficit": "Fedezethiány",
   "create.title": "Új számla",
   "create.nameLabel": "Számla neve",
   "create.submit": "Számla létrehozása",

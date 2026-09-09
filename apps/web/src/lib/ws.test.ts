@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { accountSummaryDto } from "../test/fixtures";
 import { createWsClient, type WsTimers } from "./ws";
 
 interface PendingTimer {
@@ -52,18 +53,7 @@ class FakeSocket {
   }
 }
 
-const ACCOUNT_DTO = {
-  id: "acc-1",
-  name: "Main",
-  cash: "100000.00",
-  positionsValue: "0.00",
-  equity: "100000.00",
-  unrealizedPnl: "0.00",
-  unrealizedPnlPct: "0.00",
-  dailyPnl: "0.00",
-  dailyPnlPct: "0.00",
-  createdAt: "2026-09-08T10:00:00.000Z",
-};
+const ACCOUNT_DTO = accountSummaryDto();
 
 function fakeTimers(): { timers: WsTimers; pending: PendingTimer[] } {
   const pending: PendingTimer[] = [];

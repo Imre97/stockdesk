@@ -3,8 +3,8 @@ import type { MarketStatus, SymbolDetail, Timeframe, TradeSide } from "@stockdes
 import { useTranslation } from "react-i18next";
 
 import { useActiveAccountId } from "../accounts/hooks";
-import { usePositionRows } from "../dashboard/hooks";
 import type { PositionViewModel } from "../dashboard/mappers";
+import { useActivePositions, usePosition } from "../positions/hooks";
 import { useSettingsLocale } from "../settings/hooks";
 import { readChartPrefs, writeChartPrefs, type ChartType } from "./chart-prefs";
 import { toSymbolHeaderView, type SymbolHeaderView } from "./header-mappers";
@@ -99,10 +99,9 @@ export function useSidePanel(): SidePanelControls {
 }
 
 export function useSymbolPosition(symbol: string): PositionViewModel | null {
-  const rows = usePositionRows();
-  const upper = symbol.toUpperCase();
+  const accountId = useActivePositions();
 
-  return useMemo(() => rows.find((row) => row.symbol === upper) ?? null, [rows, upper]);
+  return usePosition(accountId, symbol);
 }
 
 export interface SymbolTradeRowsView {

@@ -1,6 +1,7 @@
 import { Decimal, accountSummarySchema, type AccountSummaryDto } from "@stockdesk/shared";
 import { describe, expect, it } from "vitest";
 
+import { accountSummaryDto } from "../../test/fixtures";
 import {
   localeForLanguage,
   parseAccountSummaries,
@@ -18,19 +19,7 @@ const MONEY_OPTIONS: Intl.NumberFormatOptions = {
 };
 
 function dto(overrides: Partial<AccountSummaryDto> = {}): AccountSummaryDto {
-  return {
-    id: "acc-1",
-    name: "Main",
-    cash: "100000.00",
-    positionsValue: "0.00",
-    equity: "100000.00",
-    unrealizedPnl: "0.00",
-    unrealizedPnlPct: "0.00",
-    dailyPnl: "0.00",
-    dailyPnlPct: "0.00",
-    createdAt: "2026-09-08T10:00:00.000Z",
-    ...overrides,
-  };
+  return accountSummaryDto(overrides);
 }
 
 describe("localeForLanguage", () => {
@@ -98,6 +87,19 @@ describe("toAccountViewModel", () => {
     expect(view.dailyPnlPct).toBe("12.54%");
     expect(view.dailyTone).toBe("gain");
     expect(view.unrealizedTone).toBe("neutral");
+    expect(view.buyingPower).toBe("$100,000.00");
+    expect(view.marginDeficit).toBe(false);
+  });
+
+  it("carries the buying power and the margin deficit flag of the summary", () => {
+    const account = accountSummarySchema.parse(
+      dto({ buyingPower: "97436.33", shortValue: "5000.00", marginDeficit: true }),
+    );
+
+    const view = toAccountViewModel(account, "en-US");
+
+    expect(view.buyingPower).toBe("$97,436.33");
+    expect(view.marginDeficit).toBe(true);
   });
 
   it("formats a negative daily result as a loss", () => {

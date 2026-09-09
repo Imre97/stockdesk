@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { toneClass } from "../../accounts/mappers";
@@ -40,7 +41,16 @@ export function PositionsTable({ rows }: PositionsTableProps) {
       <TableBody>
         {rows.map((row) => (
           <TableRow key={row.symbol}>
-            <TableCell className="font-medium">{row.symbol}</TableCell>
+            <TableCell className="font-medium">
+              <span className="flex items-center gap-1.5">
+                {row.symbol}
+                {row.short && (
+                  <Badge className="text-[10px]" variant="outline">
+                    {t("positions.short")}
+                  </Badge>
+                )}
+              </span>
+            </TableCell>
             <TableCell className="tabular-nums">{row.quantity}</TableCell>
             <TableCell className="tabular-nums">{row.averageCost}</TableCell>
             <TableCell className="tabular-nums">{row.lastPrice}</TableCell>
