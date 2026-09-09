@@ -13,6 +13,7 @@ const OPEN_STATUS: MarketStatus = { status: "open", nextOpenAt: null, nextCloseA
 const OPEN_READY_STATE = 1;
 const KNOWN = ["TSLA", "AAPL"];
 const UNKNOWN = ["XXXX", "YYYY"];
+const BATCH_COUNT = 10;
 
 interface FakeSocket {
   socket: WebSocket;
@@ -36,6 +37,7 @@ function raw(message: unknown): RawData {
 
 function createHarness(active: string[]) {
   const calls: string[][] = [];
+  const snapshotBatches: string[][] = [];
   const prices = {
     onStatusChange: () => (): void => undefined,
     getMarketStatus: () => OPEN_STATUS,
@@ -54,7 +56,12 @@ function createHarness(active: string[]) {
     aggregator,
     subscriptions: createMarketSubscriptions(),
     throttle: { drop: vi.fn() } as unknown as QuoteThrottle,
-    feed: { sendSnapshot: async (): Promise<void> => undefined } as unknown as QuoteFeed,
+    feed: {
+      sendSnapshot: async (): Promise<void> => undefined,
+      sendSnapshots: async (_socket: object, batch: string[]): Promise<void> => {
+        snapshotBatches.push(batch);
+      },
+    } as unknown as QuoteFeed,
     activeSymbols: async (symbols: string[]) => {
       calls.push(symbols);
 
@@ -63,7 +70,7 @@ function createHarness(active: string[]) {
     log: vi.fn(),
   });
 
-  return { channels, calls };
+  return { channels, calls, snapshotBatches };
 }
 
 describe("attachMarketChannels", () => {
@@ -88,6 +95,29 @@ describe("attachMarketChannels", () => {
     );
 
     expect(notFound.map((message) => (message as { symbol?: string }).symbol)).toEqual(UNKNOWN);
+
+    channels.stop();
+  });
+
+  it("asks the feed for the snapshots of one subscribe message in a single batch", async () => {
+    const wanted = Array.from(
+      { length: BATCH_COUNT },
+      (_value, index) => `ZZ${String(index + 1).padStart(2, "0")}`,
+    );
+    const { channels, snapshotBatches } = createHarness(wanted);
+    const client = createFakeSocket();
+
+    channels.onAuthenticated(client.socket);
+    channels.onMessage(
+      client.socket,
+      raw({ type: "subscribe", channel: "quotes", symbols: wanted }),
+    );
+
+    await vi.waitFor(() => {
+      expect(snapshotBatches).toHaveLength(1);
+    });
+
+    expect(snapshotBatches[0]).toEqual(wanted);
 
     channels.stop();
   });

@@ -43,6 +43,31 @@ export async function cachedCloses(symbols: string[]): Promise<Map<string, Decim
   return closes;
 }
 
+/**
+ * The batched form of `prevCloseFor`: one symbol lookup and one candle query for the whole list.
+ * Symbols without a final daily bar before the day start are absent from the result.
+ */
+export async function prevClosesForSymbols(
+  symbols: string[],
+  at: Date,
+): Promise<Map<string, Decimal>> {
+  const ids = await findActiveSymbolIds(symbols);
+  const rows = await candlesRepository.latestFinalClosesBefore(
+    [...ids.values()],
+    DAILY,
+    dayStart(at),
+  );
+  const byId = new Map(rows.map((row) => [row.symbolId, row.close]));
+  const closes = new Map<string, Decimal>();
+
+  for (const [symbol, id] of ids) {
+    const close = byId.get(id);
+    if (close !== undefined) closes.set(symbol, toDecimal(close));
+  }
+
+  return closes;
+}
+
 export async function prevCloseFor(symbolId: string, at: Date): Promise<Decimal | null> {
   const row = await candlesRepository.latestFinalBarBefore(symbolId, DAILY, dayStart(at));
 

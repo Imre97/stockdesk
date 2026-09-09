@@ -10,6 +10,7 @@ export interface QuoteFeedPrices {
   onTrade: PriceService["onTrade"];
   lastTrade: PriceService["lastTrade"];
   getPrevClose: PriceService["getPrevClose"];
+  getPrevCloses: PriceService["getPrevCloses"];
 }
 
 export interface QuoteFeedOptions {
@@ -21,6 +22,7 @@ export interface QuoteFeedOptions {
 
 export interface QuoteFeed {
   sendSnapshot: (socket: object, symbol: string) => Promise<void>;
+  sendSnapshots: (socket: object, symbols: string[]) => Promise<void>;
   stop: () => void;
 }
 
@@ -58,6 +60,30 @@ export function createQuoteFeed(options: QuoteFeedOptions): QuoteFeed {
     return await value;
   }
 
+  /**
+   * One subscribe message must not turn into one previous-close query per symbol (TD-67), so the
+   * pending promise of the whole batch is written into the same per-symbol cache the tick path
+   * reads: the snapshots that follow answer from it.
+   */
+  function primePrevCloses(symbols: string[], at: Date): void {
+    const dayMs = bucketStartMs(at.getTime(), "1D");
+    const missing = symbols.filter((symbol) => prevCloses.get(symbol)?.dayMs !== dayMs);
+
+    if (missing.length === 0) return;
+
+    const batch = prices.getPrevCloses(missing, at).catch((error: unknown) => {
+      log(`Reading the previous closes of a subscribe batch failed: ${describe(error)}`);
+
+      for (const symbol of missing) prevCloses.delete(symbol);
+
+      return new Map<string, Decimal | null>();
+    });
+
+    for (const symbol of missing) {
+      prevCloses.set(symbol, { dayMs, value: batch.then((closes) => closes.get(symbol) ?? null) });
+    }
+  }
+
   async function deliver(trade: Trade, sockets: object[]): Promise<void> {
     if (sockets.length === 0) return;
 
@@ -76,6 +102,33 @@ export function createQuoteFeed(options: QuoteFeedOptions): QuoteFeed {
       if (trade === undefined) return;
 
       await deliver(trade, [socket]);
+    },
+
+    async sendSnapshots(socket: object, symbols: string[]): Promise<void> {
+      const trades = symbols
+        .map((symbol) => prices.lastTrade(symbol))
+        .filter((trade): trade is Trade => trade !== undefined);
+
+      const byDay = new Map<number, Trade[]>();
+
+      for (const trade of trades) {
+        const dayMs = bucketStartMs(trade.at.getTime(), "1D");
+        const owned = byDay.get(dayMs) ?? [];
+        owned.push(trade);
+        byDay.set(dayMs, owned);
+      }
+
+      for (const group of byDay.values()) {
+        const first = group[0];
+        if (first === undefined) continue;
+
+        primePrevCloses(
+          group.map((trade) => trade.symbol),
+          first.at,
+        );
+      }
+
+      for (const trade of trades) await deliver(trade, [socket]);
     },
 
     stop: release,

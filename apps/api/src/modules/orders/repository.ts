@@ -193,3 +193,70 @@ export async function createOrder(
     return { created: false, order: existing };
   }
 }
+
+export interface OrdersCursor {
+  createdAt: Date;
+  id: string;
+}
+
+export interface OrdersFilter {
+  accountIds: string[];
+  statuses: readonly OrderStatus[] | undefined;
+  symbol: string | undefined;
+}
+
+export async function listChildren(parentOrderId: string): Promise<OrderRow[]> {
+  return await prisma.order.findMany({ where: { parentOrderId }, orderBy: ORDER_SEQUENCE });
+}
+
+export async function listOrdersPage(
+  filter: OrdersFilter,
+  limit: number,
+  cursor: OrdersCursor | undefined,
+): Promise<OrderRow[]> {
+  if (filter.accountIds.length === 0) return [];
+
+  const keyset =
+    cursor === undefined
+      ? {}
+      : {
+          OR: [
+            { createdAt: { lt: cursor.createdAt } },
+            { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+          ],
+        };
+
+  return await prisma.order.findMany({
+    where: {
+      accountId: { in: filter.accountIds },
+      ...(filter.statuses === undefined ? {} : { status: { in: [...filter.statuses] } }),
+      ...(filter.symbol === undefined ? {} : { symbol: filter.symbol }),
+      ...keyset,
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: limit,
+  });
+}
+
+export async function listDueDayOrders(now: Date): Promise<OrderRow[]> {
+  return await prisma.order.findMany({
+    where: {
+      timeInForce: "DAY",
+      status: { in: [...RESTING_STATUSES] },
+      expiresAt: { lte: now },
+    },
+    orderBy: ORDER_SEQUENCE,
+  });
+}
+
+export async function listOrdersByIdsAndStatus(
+  orderIds: string[],
+  status: OrderStatus,
+): Promise<OrderRow[]> {
+  if (orderIds.length === 0) return [];
+
+  return await prisma.order.findMany({
+    where: { id: { in: orderIds }, status },
+    orderBy: ORDER_SEQUENCE,
+  });
+}

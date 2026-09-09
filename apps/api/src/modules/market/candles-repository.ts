@@ -225,6 +225,28 @@ export async function latestFinalBarBefore(
   });
 }
 
+/**
+ * The batched form of `latestFinalBarBefore`: one statement prices the previous close of a whole
+ * subscribe batch instead of one read per symbol.
+ */
+export async function latestFinalClosesBefore(
+  symbolIds: string[],
+  timeframe: Timeframe,
+  time: Date,
+): Promise<LatestCloseRow[]> {
+  if (symbolIds.length === 0) return [];
+
+  return await prisma.$queryRaw<LatestCloseRow[]>`
+    SELECT DISTINCT ON ("symbolId") "symbolId", "timeframe", "close"
+    FROM "Candle"
+    WHERE "symbolId" IN (${Prisma.join(symbolIds)})
+      AND "timeframe" = ${timeframe}
+      AND "isFinal" = true
+      AND "time" < ${time}
+    ORDER BY "symbolId", "time" DESC
+  `;
+}
+
 export async function formingBarAt(
   symbolId: string,
   timeframe: Timeframe,

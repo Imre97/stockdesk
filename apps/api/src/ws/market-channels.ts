@@ -102,7 +102,10 @@ export function attachMarketChannels(options: MarketChannelsOptions): MarketChan
 
     if (fresh.length > 0) await prices.ensureStreaming(fresh);
 
-    for (const result of added) await feed.sendSnapshot(socket, result.symbol);
+    await feed.sendSnapshots(
+      socket,
+      added.map((result) => result.symbol),
+    );
   }
 
   async function unsubscribeQuotes(socket: WebSocket, symbols: string[]): Promise<void> {

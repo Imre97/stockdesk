@@ -9,6 +9,7 @@ import type {
   TransactionsQuery,
 } from "@stockdesk/shared";
 import { AppError } from "../../lib/errors.js";
+import { listAccountTrades } from "../orders/listing.js";
 import { listOpenPositions } from "../orders/positions-repository.js";
 import { loadEquityPoints } from "./equity.js";
 import { toPositionViews } from "./positions-view.js";
@@ -116,10 +117,10 @@ export function createAccountsService(dependencies: AccountsDependencies = {}): 
       return await loadEquityPoints(accountId, range, currentTime(dependencies));
     },
 
-    async trades(userId: string, accountId: string, _query: TradesQuery): Promise<TradesResponseDto> {
+    async trades(userId: string, accountId: string, query: TradesQuery): Promise<TradesResponseDto> {
       await requireOwnedAccount(userId, accountId);
 
-      return { trades: [], nextCursor: null };
+      return await listAccountTrades(accountId, query);
     },
 
     async transactions(

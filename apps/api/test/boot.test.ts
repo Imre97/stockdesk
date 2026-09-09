@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runBootTasks } from "../src/boot.js";
 import type { SnapshotJob } from "../src/modules/accounts/snapshot-job.js";
 import type { MarketJobs } from "../src/modules/market/jobs.js";
+import type { ExpiryJob } from "../src/modules/orders/expiry-job.js";
 import { loadConfig } from "../src/lib/config.js";
 import { prisma } from "../src/lib/prisma.js";
 import { truncateAll } from "./db.js";
@@ -27,6 +28,27 @@ function stubSnapshotJob(calls: JobCalls): SnapshotJob {
     },
     runThinning: () => {
       calls.thinnings += 1;
+      return Promise.resolve();
+    },
+    start: () => {
+      calls.starts += 1;
+    },
+    stop: () => {
+      calls.stops += 1;
+    },
+  };
+}
+
+interface ExpiryCalls {
+  ticks: number;
+  starts: number;
+  stops: number;
+}
+
+function stubExpiryJob(calls: ExpiryCalls): ExpiryJob {
+  return {
+    runExpiryTick: () => {
+      calls.ticks += 1;
       return Promise.resolve();
     },
     start: () => {
@@ -160,6 +182,21 @@ describe("runBootTasks", () => {
 
     tasks.stop();
     expect(calls.stops).toBe(1);
+  });
+
+  it("expires the due DAY orders once at boot and starts the expiry job", async () => {
+    const expiry: ExpiryCalls = { ticks: 0, starts: 0, stops: 0 };
+
+    const tasks = await runBootTasks(config, {
+      snapshotJob: stubSnapshotJob({ ticks: 0, thinnings: 0, starts: 0, stops: 0 }),
+      pruneExpiredRefreshTokens: () => Promise.resolve(0),
+      expiryJob: stubExpiryJob(expiry),
+    });
+
+    expect(expiry).toEqual({ ticks: 1, starts: 1, stops: 0 });
+
+    tasks.stop();
+    expect(expiry.stops).toBe(1);
   });
 
   it("refreshes the symbol master, thins the candles and starts the market jobs", async () => {

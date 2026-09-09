@@ -83,6 +83,7 @@ server.listen(config.port, () => {
 runBootTasks(config, {
   broadcast,
   prices: market.priceService,
+  engine,
   marketJobs: createMarketJobs({ config, runtime: market, log }),
   readiness,
 }).catch((error: unknown) => {

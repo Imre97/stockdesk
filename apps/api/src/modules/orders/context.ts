@@ -45,6 +45,11 @@ export interface OrderContext {
   marginDeficit: boolean;
 }
 
+export interface ExcludedOrder {
+  id: string;
+  reservedCash: Decimal;
+}
+
 export function symbolNotFound(): AppError {
   return new AppError(404, "SYMBOL_NOT_FOUND", "Symbol not found.");
 }
@@ -71,12 +76,15 @@ function marginDeficitReached(): AppError {
 
 /**
  * Placement and preview share this pipeline so both report the same errors in the same order: the
- * margin deficit blocks a position-increasing order before the buying power is even compared.
+ * margin deficit blocks a position-increasing order before the buying power is even compared. A
+ * modify passes its own row through `exclude`, so neither the netting nor the buying power counts
+ * the order that is being replaced.
  */
 export async function loadOrderContext(
   account: AccountRecord,
   request: PlaceOrderInput,
   dependencies: OrdersDependencies,
+  exclude: ExcludedOrder | undefined = undefined,
 ): Promise<OrderContext> {
   const symbol = await findActiveSymbol(request.symbol);
   if (symbol === null) throw symbolNotFound();
@@ -89,7 +97,9 @@ export async function loadOrderContext(
   ]);
 
   const values = await valuePositions(positions, dependencies.accounts.prices);
-  const reservedCash = reservations.get(account.id) ?? new Decimal(0);
+  const reservedCash = (reservations.get(account.id) ?? new Decimal(0)).minus(
+    exclude?.reservedCash ?? 0,
+  );
   const config = dependencies.config;
 
   const power = buyingPower({
@@ -106,10 +116,12 @@ export async function loadOrderContext(
     request,
     symbol: { shortable: symbol.shortable, fractionable: symbol.fractionable },
     positionQuantity: held?.quantity ?? new Decimal(0),
-    openOrders: openOrders.map((order) => ({
-      side: order.side,
-      quantity: new Decimal(order.quantity.toString()),
-    })),
+    openOrders: openOrders
+      .filter((order) => order.id !== exclude?.id)
+      .map((order) => ({
+        side: order.side,
+        quantity: new Decimal(order.quantity.toString()),
+      })),
     lastPrice,
     marketOpen: dependencies.prices.getMarketStatus().status === OPEN,
     rates: {

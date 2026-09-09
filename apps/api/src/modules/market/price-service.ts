@@ -3,7 +3,14 @@ import { marketStatusAt } from "./calendar.js";
 import * as candlesRepository from "./candles-repository.js";
 import type { CandleRow } from "./candles-repository.js";
 import type { CandleCache } from "./candles.js";
-import { cachedClose, cachedCloses, dayStart, prevCloseFor, toDecimal } from "./last-close.js";
+import {
+  cachedClose,
+  cachedCloses,
+  dayStart,
+  prevCloseFor,
+  prevClosesForSymbols,
+  toDecimal,
+} from "./last-close.js";
 import type { CompositeProvider } from "./providers/composite.js";
 import type { Quote, Trade, TradeHandler } from "./providers/types.js";
 import { findActiveSymbol } from "./symbols-repository.js";
@@ -56,6 +63,7 @@ export interface PriceService {
   getLastPrice: (symbol: string) => Promise<Decimal | null>;
   getLastPrices: (symbols: string[]) => Promise<Map<string, Decimal | null>>;
   getPrevClose: (symbol: string, at?: Date) => Promise<Decimal | null>;
+  getPrevCloses: (symbols: string[], at?: Date) => Promise<Map<string, Decimal | null>>;
   getQuoteSnapshot: (symbol: string) => Promise<QuoteSnapshot | null>;
   getMarketStatus: () => MarketStatus;
   onStatusChange: (listener: (status: MarketStatus) => void) => () => void;
@@ -235,6 +243,12 @@ export function createPriceService(options: PriceServiceOptions): PriceService {
       const id = await symbolId(symbol);
 
       return id === null ? null : await prevCloseFor(id, at ?? now());
+    },
+
+    async getPrevCloses(symbols: string[], at?: Date): Promise<Map<string, Decimal | null>> {
+      const closes = await prevClosesForSymbols(symbols, at ?? now());
+
+      return new Map(symbols.map((symbol) => [symbol, closes.get(symbol) ?? null]));
     },
 
     getQuoteSnapshot: quoteSnapshot,

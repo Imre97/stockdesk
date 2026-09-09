@@ -3,7 +3,14 @@ import { createSnapshotJob, type SnapshotJob } from "./modules/accounts/snapshot
 import type { AccountsDependencies, Broadcast } from "./modules/accounts/snapshot-writer.js";
 import { deleteExpiredRefreshTokens } from "./modules/auth/repository.js";
 import type { MarketJobs } from "./modules/market/jobs.js";
+import {
+  createExpiryJob,
+  type ExpiryEnginePort,
+  type ExpiryJob,
+} from "./modules/orders/expiry-job.js";
 import { alwaysReady, type Readiness } from "./readiness.js";
+
+const NO_INDEX: ExpiryEnginePort = { indexRemove: () => undefined };
 
 const MILLISECONDS_PER_MINUTE = 60 * 1000;
 
@@ -11,6 +18,8 @@ export interface BootDependencies {
   pruneExpiredRefreshTokens: () => Promise<number>;
   reportError: (message: string) => void;
   snapshotJob: SnapshotJob;
+  expiryJob: ExpiryJob;
+  engine: ExpiryEnginePort;
   marketJobs: MarketJobs;
   broadcast: Broadcast;
   prices: NonNullable<AccountsDependencies["prices"]>;
@@ -48,6 +57,17 @@ export async function runBootTasks(
       reportError,
     });
 
+  const expiryJob =
+    dependencies.expiryJob ??
+    createExpiryJob({
+      config,
+      engine: dependencies.engine ?? NO_INDEX,
+      broadcast: dependencies.broadcast,
+      prices: dependencies.prices,
+      now: dependencies.now,
+      reportError,
+    });
+
   const pruneOnce = async (): Promise<void> => {
     try {
       await prune();
@@ -60,6 +80,8 @@ export async function runBootTasks(
   await snapshotJob.runSnapshotTick();
   await snapshotJob.runThinning();
   snapshotJob.start();
+  await expiryJob.runExpiryTick();
+  expiryJob.start();
 
   const marketJobs = dependencies.marketJobs;
   const readiness = dependencies.readiness ?? alwaysReady;
@@ -84,6 +106,7 @@ export async function runBootTasks(
     stop: () => {
       clearInterval(timer);
       snapshotJob.stop();
+      expiryJob.stop();
       marketJobs?.stop();
     },
   };
