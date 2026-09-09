@@ -39,6 +39,12 @@ const ACCOUNT_SUMMARY = {
   unrealizedPnlPct: "0.00",
   dailyPnl: "0.00",
   dailyPnlPct: "0.00",
+  longValue: "0.00",
+  shortValue: "0.00",
+  shortMargin: "0.00",
+  reservedCash: "0.00",
+  buyingPower: "100000.00",
+  marginDeficit: false,
   createdAt: "2026-09-08T10:00:00.000Z",
 };
 

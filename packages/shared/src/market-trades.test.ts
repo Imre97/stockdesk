@@ -15,11 +15,13 @@ import {
 const TRADE = {
   id: "clx0000000000000000000001",
   orderId: "clx0000000000000000000002",
+  accountId: "clx0000000000000000000003",
   symbol: "TSLA",
   side: "BUY",
   quantity: "10",
   price: "250.0000",
   amount: "-2500.00",
+  commission: "0.00",
   realizedPnl: null,
   executedAt: "2026-09-08T14:31:00.000Z",
 };
@@ -47,6 +49,8 @@ describe("tradeSchema", () => {
 
     expect(result.quantity).toBeInstanceOf(Decimal);
     expect(result.amount.equals(new Decimal("-2500"))).toBe(true);
+    expect(result.commission.equals(new Decimal("0"))).toBe(true);
+    expect(result.accountId).toBe(TRADE.accountId);
     expect(result.realizedPnl).toBeNull();
     expect(result.executedAt).toBe(TRADE.executedAt);
   });
@@ -62,6 +66,8 @@ describe("tradeSchema", () => {
     ["a quantity sent as a JSON number", { ...TRADE, quantity: 10 }],
     ["an unknown side", { ...TRADE, side: "HOLD" }],
     ["a missing order id", { ...TRADE, orderId: undefined }],
+    ["a missing account id", { ...TRADE, accountId: undefined }],
+    ["a missing commission", { ...TRADE, commission: undefined }],
     ["an executedAt without a time component", { ...TRADE, executedAt: "2026-09-08" }],
   ])("rejects %s", (_label, input) => {
     expect(tradeSchema.safeParse(input).success).toBe(false);

@@ -64,11 +64,13 @@ const CHILD_DTO = {
 const TRADE_DTO = {
   id: "clx0000000000000000000020",
   orderId: ORDER_DTO.id,
+  accountId: ORDER_DTO.accountId,
   symbol: "TSLA",
   side: "BUY",
   quantity: "10.000000",
   price: "250.0000",
   amount: "2500.00",
+  commission: "0.00",
   realizedPnl: null,
   executedAt: "2026-09-08T14:32:00.000Z",
 };
@@ -95,6 +97,12 @@ const ACCOUNT_SUMMARY_DTO = {
   unrealizedPnlPct: "0.00",
   dailyPnl: "0.00",
   dailyPnlPct: "0.00",
+  longValue: "0.00",
+  shortValue: "0.00",
+  shortMargin: "0.00",
+  reservedCash: "0.00",
+  buyingPower: "100000.00",
+  marginDeficit: false,
   createdAt: "2026-09-08T10:00:00.000Z",
 };
 

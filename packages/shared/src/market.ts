@@ -151,11 +151,13 @@ export const tradeSideSchema = z.enum(["BUY", "SELL"]);
 export const tradeDtoSchema = z.object({
   id: z.string().min(1),
   orderId: z.string().min(1),
+  accountId: z.string().min(1),
   symbol: symbolSchema,
   side: tradeSideSchema,
   quantity: decimalStringValue,
   price: decimalStringValue,
   amount: decimalStringValue,
+  commission: decimalStringValue,
   realizedPnl: decimalStringValue.nullable(),
   executedAt: z.iso.datetime(),
 });
@@ -164,6 +166,7 @@ export const tradeSchema = tradeDtoSchema.extend({
   quantity: decimalString,
   price: decimalString,
   amount: decimalString,
+  commission: decimalString,
   realizedPnl: decimalString.nullable(),
 });
 

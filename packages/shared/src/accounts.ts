@@ -40,6 +40,12 @@ export const accountSummaryDtoSchema = z.object({
   unrealizedPnlPct: decimalStringValue,
   dailyPnl: decimalStringValue,
   dailyPnlPct: decimalStringValue,
+  longValue: decimalStringValue,
+  shortValue: decimalStringValue,
+  shortMargin: decimalStringValue,
+  reservedCash: decimalStringValue,
+  buyingPower: decimalStringValue,
+  marginDeficit: z.boolean(),
   createdAt: z.iso.datetime(),
 });
 
@@ -51,6 +57,11 @@ export const accountSummarySchema = accountSummaryDtoSchema.extend({
   unrealizedPnlPct: decimalString,
   dailyPnl: decimalString,
   dailyPnlPct: decimalString,
+  longValue: decimalString,
+  shortValue: decimalString,
+  shortMargin: decimalString,
+  reservedCash: decimalString,
+  buyingPower: decimalString,
 });
 
 export const accountsResponseSchema = z.object({ accounts: z.array(accountSummarySchema) });
@@ -80,6 +91,7 @@ export const positionSchema = z.object({
   unrealizedPnlPct: decimalString,
   dailyChange: decimalString,
   dailyChangePct: decimalString,
+  realizedPnl: decimalString,
 });
 
 export const positionsResponseSchema = z.object({ positions: z.array(positionSchema) });

@@ -29,6 +29,12 @@ const ACCOUNT_SUMMARY = {
   unrealizedPnlPct: "0.00",
   dailyPnl: "0.00",
   dailyPnlPct: "0.00",
+  longValue: "0.00",
+  shortValue: "0.00",
+  shortMargin: "0.00",
+  reservedCash: "0.00",
+  buyingPower: "100000.00",
+  marginDeficit: false,
   createdAt: "2026-09-08T10:00:00.000Z",
 };
 
@@ -42,6 +48,7 @@ const POSITION = {
   unrealizedPnlPct: "1.03",
   dailyChange: "-4.20",
   dailyChangePct: "-0.23",
+  realizedPnl: "12.50",
 };
 
 describe("account constants", () => {
@@ -102,6 +109,24 @@ describe("accountSummarySchema", () => {
     const result = accountSummarySchema.parse({ ...ACCOUNT_SUMMARY, userId: "clx000" });
 
     expect(result).not.toHaveProperty("userId");
+  });
+});
+
+describe("accountSummarySchema buying power fields", () => {
+  it("transforms the buying power fields into Decimal values and keeps the deficit flag", () => {
+    const result = accountSummarySchema.parse({ ...ACCOUNT_SUMMARY, shortValue: "1200.00", marginDeficit: true });
+
+    expect(result.buyingPower.equals(new Decimal("100000"))).toBe(true);
+    expect(result.shortValue.equals(new Decimal("1200"))).toBe(true);
+    expect(result.marginDeficit).toBe(true);
+  });
+
+  it.each([
+    ["a missing buyingPower", { ...ACCOUNT_SUMMARY, buyingPower: undefined }],
+    ["a marginDeficit sent as a string", { ...ACCOUNT_SUMMARY, marginDeficit: "false" }],
+    ["a reservedCash sent as a JSON number", { ...ACCOUNT_SUMMARY, reservedCash: 0 }],
+  ])("rejects %s", (_label, input) => {
+    expect(accountSummarySchema.safeParse(input).success).toBe(false);
   });
 });
 
@@ -229,6 +254,11 @@ describe("positionSchema", () => {
 
   it("rejects a price sent as a JSON number", () => {
     expect(positionSchema.safeParse({ ...POSITION, lastPrice: 182.1 }).success).toBe(false);
+  });
+
+  it("transforms the realized profit into a Decimal and rejects its absence", () => {
+    expect(positionSchema.parse(POSITION).realizedPnl.equals(new Decimal("12.5"))).toBe(true);
+    expect(positionSchema.safeParse({ ...POSITION, realizedPnl: undefined }).success).toBe(false);
   });
 
   it("accepts an empty positions response", () => {
